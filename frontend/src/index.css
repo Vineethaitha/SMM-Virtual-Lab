@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 96%;
+    --card: 222 40% 8%;
+    --card-foreground: 210 40% 96%;
+    --primary: 199 89% 48%;
+    --primary-foreground: 222 47% 6%;
+    --secondary: 217 33% 14%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 217 33% 12%;
+    --muted-foreground: 215 16% 65%;
+    --accent: 199 89% 48%;
+    --accent-foreground: 222 47% 6%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 25% 16%;
+    --input: 217 25% 16%;
+    --ring: 199 89% 48%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(217 25% 24%);
+    border-radius: 4px;
+  }
+}
+
+@media print {
+  aside,
+  header,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    display: block !important;
+    overflow: visible !important;
+  }
+}
+
+.monaco-editor,
+.monaco-editor .margin,
+.monaco-editor-background {
+  background-color: #0b1220 !important;
+}
+
+.react-flow__controls {
+  background: hsl(222 40% 8%) !important;
+  border: 1px solid hsl(217 25% 16%) !important;
+  box-shadow: none !important;
+}
+.react-flow__controls-button {
+  background: hsl(222 40% 8%) !important;
+  border-bottom: 1px solid hsl(217 25% 16%) !important;
+  fill: #94a3b8 !important;
+}
+
+.cc-high {
+  background: rgba(248, 113, 113, 0.12) !important;
+}
+.cc-mid {
+  background: rgba(251, 191, 36, 0.1) !important;
+}
+.cc-select {
+  background: rgba(56, 189, 248, 0.14) !important;
+}
+.cc-high-glyph {
+  background: #f87171;
+  width: 4px !important;
+  margin-left: 3px;
+}
+.cc-mid-glyph {
+  background: #fbbf24;
+  width: 4px !important;
+  margin-left: 3px;
+}
+.cc-low-glyph {
+  background: #34d399;
+  width: 4px !important;
+  margin-left: 3px;
+}
+
+.sim-current {
+  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.85));
+}
