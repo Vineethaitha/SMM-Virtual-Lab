@@ -7,7 +7,45 @@ Interactive Software Metrics & Measurement lab: write Python, **statically** ana
 - Frontend: React, TypeScript, Vite, Tailwind, Monaco, React Flow, Recharts
 - Backend: Python, FastAPI, Radon, Python AST
 
-## Quick start
+## Quick start (one command)
+
+The startup script installs dependencies on first run and launches **both** the
+backend and frontend together.
+
+```bash
+# macOS / Linux
+./start.sh
+```
+
+```bat
+:: Windows
+start.bat
+```
+
+Then open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` → FastAPI `:8000`.
+Press **Ctrl+C** to stop both servers.
+
+Prerequisites: **Python 3.11+** and **Node.js 20+** on your `PATH`.
+
+### `start.sh` options
+
+| Command | What it does |
+| --- | --- |
+| `./start.sh` | Set up (if needed) and run backend + frontend |
+| `./start.sh --setup-only` | Install deps only, don't start servers |
+| `./start.sh --backend` | Run only the FastAPI backend |
+| `./start.sh --frontend` | Run only the Vite frontend |
+| `./start.sh --help` | Show usage |
+
+The script creates a virtual environment at `.venv/`, installs
+`backend/requirements.txt`, runs `npm install` in `frontend/` when
+`node_modules` is missing, and starts:
+
+- **Backend** → http://127.0.0.1:8000 (`uvicorn app.main:app --reload`)
+- **Frontend** → http://localhost:5173 (`npm run dev`)
+
+<details>
+<summary>Manual start (without the script)</summary>
 
 ```bash
 # Backend (from repo root)
@@ -22,7 +60,7 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` → FastAPI `:8000`.
+</details>
 
 ## Tests
 
