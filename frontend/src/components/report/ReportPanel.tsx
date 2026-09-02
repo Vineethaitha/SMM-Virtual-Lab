@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Download, FileJson, FileText, Loader2 } from "lucide-react";
 import { compareAnalyses } from "@/lib/compare";
 import { formatNum } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -81,8 +82,20 @@ export function ReportPanel() {
       "Static metrics make complexity visible, guide refactoring, and provide evidence of improvement when before/after values move in the right direction.",
   });
 
+  const [exporting, setExporting] = useState(false);
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const rows = analysis && baseline ? compareAnalyses(baseline, analysis) : [];
+
+  const exportPdf = async () => {
+    if (!analysis) return;
+    setExporting(true);
+    try {
+      const { downloadReportPdf } = await import("@/lib/reportPdf");
+      await downloadReportPdf(form, analysis, rows);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const download = (kind: "json" | "md") => {
     if (!analysis) return;
@@ -100,16 +113,29 @@ export function ReportPanel() {
   return (
     <div className="space-y-3 p-3 print:p-0" id="lab-report">
       <div className="no-print flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => window.print()}>
-          Print / PDF
+        <Button size="sm" onClick={() => void exportPdf()} disabled={!analysis || exporting}>
+          {exporting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Download className="h-3.5 w-3.5" />
+          )}
+          {exporting ? "Preparing…" : "Download PDF"}
         </Button>
         <Button size="sm" variant="secondary" onClick={() => download("md")} disabled={!analysis}>
-          Download Markdown
+          <FileText className="h-3.5 w-3.5" />
+          Markdown
         </Button>
         <Button size="sm" variant="outline" onClick={() => download("json")} disabled={!analysis}>
-          Download JSON
+          <FileJson className="h-3.5 w-3.5" />
+          JSON
         </Button>
       </div>
+      {!analysis && (
+        <p className="text-xs text-muted-foreground">
+          Run <span className="font-medium text-foreground">Analyze Code</span> in Simulation first — the PDF
+          embeds your live Radon metrics.
+        </p>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Section 1 — Student & Project Details</CardTitle>

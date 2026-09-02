@@ -62,7 +62,7 @@ export function LabShell() {
       <div className="min-w-0 flex-1">
         <div className="gradient-hero relative overflow-hidden text-white">
           <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
-          <div className="relative mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-6">
+          <div className="relative px-4 py-5 sm:px-6 sm:py-6 lg:px-10">
             <div className="mb-2 flex items-center gap-2 text-xs text-white/70">
               <span>Experiments</span>
               <span>/</span>
@@ -82,7 +82,7 @@ export function LabShell() {
         </div>
 
         <nav className="sticky top-0 z-20 glass border-b border-border shadow-sm">
-          <div className="mx-auto flex max-w-5xl gap-2 overflow-x-auto px-4 py-2.5">
+          <div className="flex gap-2 overflow-x-auto px-4 py-2.5 sm:px-6 lg:px-10">
             {NAV.map((item) => {
               const Icon = NAV_ICONS[item.id];
               const isActive = section === item.id;
@@ -106,7 +106,7 @@ export function LabShell() {
           </div>
         </nav>
 
-        <main id="lab-section" className="mx-auto max-w-5xl scroll-mt-16 px-4 py-6 sm:px-6">
+        <main id="lab-section" className="scroll-mt-16 px-4 py-6 sm:px-6 lg:px-10">
           <motion.div
             key={section}
             initial={{ opacity: 0, y: 12 }}
@@ -194,7 +194,7 @@ function SectionBody({
             <BookOpen className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold">Python editor</span>
           </div>
-          <div className="h-[440px]">
+          <div className="h-[640px]">
             <CodeWorkspace />
           </div>
         </Card>
@@ -203,11 +203,24 @@ function SectionBody({
           <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2.5">
             <GitCompare className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold">Control-flow graph</span>
-            <span className="ml-auto text-xs text-muted-foreground">Click a node to jump to its source line</span>
+            {analysisReady && (
+              <span className="ml-auto text-xs text-muted-foreground">Click a node to jump to its source line</span>
+            )}
           </div>
-          <div className="h-[560px]">
-            <CfgView />
-          </div>
+          {analysisReady ? (
+            <div className="h-[600px]">
+              <CfgView />
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-2 px-4 py-10 text-center">
+              <GitCompare className="h-8 w-8 text-muted-foreground/50" />
+              <p className="text-sm font-medium text-foreground">No graph yet</p>
+              <p className="max-w-sm text-xs text-muted-foreground">
+                Click <span className="font-medium text-foreground">Analyze Code</span> above to build the
+                control-flow graph, then Play or Step through it.
+              </p>
+            </div>
+          )}
         </Card>
       </div>
     );
@@ -282,7 +295,7 @@ function TheoryCard({ section }: { section: LabSection }) {
           {copy.title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
+      <CardContent className="max-w-4xl space-y-3 text-sm leading-relaxed text-muted-foreground">
         {copy.body.map((p) => (
           <p key={p.slice(0, 48)}>{p}</p>
         ))}
