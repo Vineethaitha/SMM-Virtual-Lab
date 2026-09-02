@@ -1,201 +1,324 @@
-import { Activity, Baseline, Play, RefreshCw } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
+import type { ComponentType } from "react";
+import {
+  Activity,
+  Baseline,
+  BarChart3,
+  BookOpen,
+  ClipboardList,
+  FlaskConical,
+  GitCompare,
+  Lightbulb,
+  ListChecks,
+  Play,
+  RefreshCw,
+  Target,
+  FileText,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CfgView } from "@/components/cfg/CfgView";
 import { CodeWorkspace } from "@/components/editor/CodeWorkspace";
 import { ExercisePanel } from "@/components/exercise/ExercisePanel";
 import { InsightsList, MetricsDashboard } from "@/components/metrics/Dashboard";
 import { Pipeline } from "@/components/pipeline/Pipeline";
 import { ComparisonPanel, ReportPanel } from "@/components/report/ReportPanel";
+import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
 import { NAV, COPY } from "@/content/labCopy";
 import { cn } from "@/lib/utils";
 import { useLab } from "@/state/LabContext";
 import type { LabSection } from "@/lib/types";
-import { useState } from "react";
 
-type WorkspaceTab = "metrics" | "cfg";
+const NAV_ICONS: Record<LabSection, ComponentType<{ className?: string }>> = {
+  aim: Target,
+  objective: Lightbulb,
+  theory: BookOpen,
+  procedure: ClipboardList,
+  exercise: ListChecks,
+  simulation: Play,
+  results: BarChart3,
+  analysis: FlaskConical,
+  comparison: GitCompare,
+  conclusion: FileText,
+};
 
 export function LabShell() {
   const { section, setSection, analyze, analyzing, saveBaseline, analysis, error, sim, baseline } =
     useLab();
-  const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>("metrics");
+
+  const skipScroll = useRef(true);
+  useEffect(() => {
+    if (skipScroll.current) {
+      skipScroll.current = false;
+      return;
+    }
+    document.getElementById("lab-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [section]);
 
   return (
-    <div className="flex h-full flex-col bg-[radial-gradient(ellipse_at_top,_#0f1a2e_0%,_#070b14_55%)]">
-      <header className="no-print flex flex-wrap items-center gap-2 border-b border-border/80 bg-card/40 px-4 py-2 backdrop-blur">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-sky-500/15 font-mono text-xs font-bold text-sky-300">
-            SMM
-          </div>
-          <div>
-            <div className="text-sm font-semibold tracking-tight">SMM Virtual Lab</div>
-            <div className="text-[11px] text-muted-foreground">
-              Exercise 1 · Software Code Metrics Analysis
+    <div className="flex min-h-screen flex-col bg-background lg:flex-row">
+      <ExperimentSidebar />
+      <div className="min-w-0 flex-1">
+        <div className="gradient-hero relative overflow-hidden text-white">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative mx-auto max-w-5xl px-4 py-5 sm:px-6 sm:py-6">
+            <div className="mb-2 flex items-center gap-2 text-xs text-white/70">
+              <span>Experiments</span>
+              <span>/</span>
+              <span className="font-medium text-white">Software Code Metrics Analysis</span>
             </div>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="inline-flex rounded-full border border-white/30 bg-white/15 px-2.5 py-0.5 text-[11px] font-medium">
+                Experiment 1
+              </span>
+              <h1 className="text-xl font-bold sm:text-2xl">Software Code Metrics Analysis</h1>
+            </div>
+            <p className="mt-1.5 max-w-3xl text-sm text-white/85">
+              Measure LOC, cyclomatic complexity, Halstead metrics, and the Maintainability Index — then
+              refactor and compare before vs after.
+            </p>
           </div>
         </div>
-        <div className="ml-auto flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => void analyze()} disabled={analyzing}>
-            <RefreshCw className={cn("h-3.5 w-3.5", analyzing && "animate-spin")} />
-            {analysis ? "Analyze Again" : "Analyze Code"}
-          </Button>
-          <Button size="sm" variant="secondary" onClick={saveBaseline} disabled={!analysis}>
-            <Baseline className="h-3.5 w-3.5" />
-            {baseline ? "Baseline Saved" : "Save Baseline"}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setSection("simulation");
-              setWorkspaceTab("cfg");
-              sim.reset();
-              sim.play();
-            }}
-            disabled={!analysis}
+
+        <nav className="sticky top-0 z-20 glass border-b border-border shadow-sm">
+          <div className="mx-auto flex max-w-5xl gap-2 overflow-x-auto px-4 py-2.5">
+            {NAV.map((item) => {
+              const Icon = NAV_ICONS[item.id];
+              const isActive = section === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSection(item.id)}
+                  className={cn(
+                    "flex items-center gap-2 whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm font-medium transition-all",
+                    isActive
+                      ? "gradient-primary text-white shadow-md"
+                      : "bg-muted/70 text-muted-foreground hover:bg-primary/10 hover:text-primary",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {item.label}
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        <main id="lab-section" className="mx-auto max-w-5xl scroll-mt-16 px-4 py-6 sm:px-6">
+          <motion.div
+            key={section}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.28 }}
           >
-            <Play className="h-3.5 w-3.5" />
-            Simulate Execution
-          </Button>
-        </div>
-      </header>
-
-      <div className="flex min-h-0 flex-1">
-        <aside className="no-print w-48 shrink-0 overflow-y-auto border-r border-border/80 bg-card/30">
-          <div className="px-3 py-3 text-[10px] uppercase tracking-wider text-muted-foreground">
-            Lab sections
-          </div>
-          <nav className="flex flex-col gap-0.5 px-2 pb-4">
-            {NAV.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setSection(item.id);
-                  if (item.id === "simulation") setWorkspaceTab("cfg");
-                  if (item.id === "results" || item.id === "analysis") setWorkspaceTab("metrics");
-                }}
-                className={cn(
-                  "rounded-md px-2 py-1.5 text-left text-sm transition-colors",
-                  section === item.id
-                    ? "bg-sky-500/15 text-sky-300"
-                    : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                )}
-              >
-                {item.label}
-              </button>
-            ))}
-          </nav>
-        </aside>
-
-        <main className="grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(320px,0.95fr)_minmax(420px,1.15fr)]">
-          <div className="flex min-h-0 flex-col border-r border-border/80">
-            <SectionCopy section={section} />
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              {section === "exercise" && <ExercisePanel />}
-              {section === "simulation" && (
-                <div className="p-3 text-xs text-muted-foreground xl:hidden">
-                  Open the CFG tab in the workspace below on large screens, or use the controls under
-                  Metrics / CFG.
-                </div>
-              )}
-              {section === "simulation" && (
-                <div className="h-[min(70vh,640px)] xl:hidden">
-                  <CfgView />
-                </div>
-              )}
-              {section === "results" && <MetricsDashboard />}
-              {section === "analysis" && <InsightsList />}
-              {section === "comparison" && <ComparisonPanel />}
-              {section === "conclusion" && <ReportPanel />}
-              {["aim", "objective", "theory", "procedure"].includes(section) && (
-                <ProcedureHint />
-              )}
-            </div>
-          </div>
-
-          <div className="no-print flex min-h-0 flex-col">
-            <Pipeline />
-            {error && (
-              <div className="mx-3 mb-2 rounded border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                {error}
-              </div>
-            )}
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex min-h-[280px] flex-[1.2] flex-col overflow-hidden">
-                <CodeWorkspace />
-              </div>
-              <div className="flex min-h-[240px] flex-1 flex-col overflow-hidden border-t border-border/80">
-                <div className="flex items-center gap-1 border-b border-border/80 px-2 py-1">
-                  {(
-                    [
-                      ["metrics", "Metrics Dashboard"],
-                      ["cfg", "Interactive CFG"],
-                    ] as const
-                  ).map(([id, label]) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setWorkspaceTab(id)}
-                      className={cn(
-                        "rounded px-2 py-1 text-xs",
-                        workspaceTab === id
-                          ? "bg-secondary text-foreground"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <div className="min-h-0 flex-1 overflow-auto">
-                  {workspaceTab === "metrics" ? <MetricsDashboard /> : <CfgView />}
-                </div>
-              </div>
-            </div>
-          </div>
+            <SectionBody
+              section={section}
+              analyze={analyze}
+              analyzing={analyzing}
+              saveBaseline={saveBaseline}
+              analysisReady={!!analysis}
+              error={error}
+              simPlay={() => {
+                setSection("simulation");
+                sim.reset();
+                sim.play();
+              }}
+              baselineSaved={!!baseline}
+            />
+          </motion.div>
         </main>
       </div>
     </div>
   );
 }
 
-function ProcedureHint() {
+function SectionBody({
+  section,
+  analyze,
+  analyzing,
+  saveBaseline,
+  analysisReady,
+  error,
+  simPlay,
+  baselineSaved,
+}: {
+  section: LabSection;
+  analyze: () => Promise<void>;
+  analyzing: boolean;
+  saveBaseline: () => void;
+  analysisReady: boolean;
+  error: string | null;
+  simPlay: () => void;
+  baselineSaved: boolean;
+}) {
+  if (section === "simulation") {
+    return (
+      <div className="space-y-4">
+        <TheoryCard section={section} />
+
+        <Card className="overflow-hidden">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border bg-muted/30 px-4 py-3">
+            <div className="mr-auto">
+              <p className="text-sm font-semibold text-foreground">Workbench</p>
+              <p className="text-xs text-muted-foreground">
+                Edit the Python, analyze real metrics, then walk the control-flow graph.
+              </p>
+            </div>
+            <Button size="sm" onClick={() => void analyze()} disabled={analyzing}>
+              <RefreshCw className={cn("h-3.5 w-3.5", analyzing && "animate-spin")} />
+              {analysisReady ? "Analyze Again" : "Analyze Code"}
+            </Button>
+            <Button size="sm" variant="secondary" onClick={saveBaseline} disabled={!analysisReady}>
+              <Baseline className="h-3.5 w-3.5" />
+              {baselineSaved ? "Baseline Saved" : "Save Baseline"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={simPlay} disabled={!analysisReady}>
+              <Play className="h-3.5 w-3.5" />
+              Simulate
+            </Button>
+          </div>
+          {error && (
+            <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">{error}</div>
+          )}
+          {(analyzing || analysisReady) && (
+            <div className="border-b border-border bg-white">
+              <Pipeline />
+            </div>
+          )}
+        </Card>
+
+        <Card className="overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2.5">
+            <BookOpen className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">Python editor</span>
+          </div>
+          <div className="h-[440px]">
+            <CodeWorkspace />
+          </div>
+        </Card>
+
+        <Card className="overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-border bg-muted/30 px-4 py-2.5">
+            <GitCompare className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">Control-flow graph</span>
+            <span className="ml-auto text-xs text-muted-foreground">Click a node to jump to its source line</span>
+          </div>
+          <div className="h-[560px]">
+            <CfgView />
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (section === "results") {
+    return (
+      <div className="space-y-4">
+        <TheoryCard section={section} />
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => void analyze()} disabled={analyzing}>
+            <RefreshCw className={cn("h-3.5 w-3.5", analyzing && "animate-spin")} />
+            {analysisReady ? "Analyze Again" : "Analyze Code"}
+          </Button>
+        </div>
+        <Pipeline />
+        <MetricsDashboard />
+      </div>
+    );
+  }
+
+  if (section === "exercise") {
+    return (
+      <div className="space-y-4">
+        <TheoryCard section={section} />
+        <ExercisePanel />
+      </div>
+    );
+  }
+
+  if (section === "analysis") {
+    return (
+      <div className="space-y-4">
+        <TheoryCard section={section} />
+        <InsightsList />
+      </div>
+    );
+  }
+
+  if (section === "comparison") {
+    return (
+      <div className="space-y-4">
+        <TheoryCard section={section} />
+        <ComparisonPanel />
+      </div>
+    );
+  }
+  if (section === "conclusion") {
+    return (
+      <div className="space-y-4">
+        <TheoryCard section={section} />
+        <ReportPanel />
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-3 p-4 text-sm text-muted-foreground">
-      <ol className="list-decimal space-y-2 pl-5">
-        <li>Edit the Python sample in the Monaco editor (right).</li>
-        <li>
-          Click <span className="text-foreground">Analyze Code</span> — metrics come from Radon, never
-          from hardcoded values.
-        </li>
-        <li>Inspect KPIs, charts, and the CFG. Click a function to jump to its source.</li>
-        <li>
-          <span className="text-foreground">Save Baseline</span>, refactor nested decisions, then{" "}
-          <span className="text-foreground">Analyze Again</span>.
-        </li>
-        <li>Complete Exercise questions and generate the report under Conclusion.</li>
-      </ol>
-      <p className="text-xs">
-        Safety: the backend only runs <code className="text-sky-300">ast.parse</code> and Radon
-        visitors. Your code is never executed.
-      </p>
+    <div className="space-y-4">
+      <TheoryCard section={section} />
+      {section === "procedure" && <ProcedureHint />}
     </div>
   );
 }
 
-function SectionCopy({ section }: { section: LabSection }) {
+function TheoryCard({ section }: { section: LabSection }) {
   const copy = COPY[section];
   return (
-    <div className="border-b border-border/80 px-4 py-3">
-      <div className="flex items-center gap-2 text-sm font-semibold">
-        <Activity className="h-4 w-4 text-sky-400" />
-        {copy.title}
-      </div>
-      <div className="mt-2 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-lg">
+          <Activity className="h-5 w-5 text-primary" />
+          {copy.title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
         {copy.body.map((p) => (
           <p key={p.slice(0, 48)}>{p}</p>
         ))}
-      </div>
-    </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProcedureHint() {
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-6 text-sm text-muted-foreground">
+        <p className="font-medium text-foreground">How to use this lab</p>
+        <ol className="list-decimal space-y-2 pl-5">
+          <li>
+            Open the <span className="font-medium text-foreground">Simulation</span> section to edit
+            Python and build the CFG.
+          </li>
+          <li>
+            Click <span className="font-medium text-foreground">Analyze Code</span> — metrics come from
+            Radon, never from hardcoded values.
+          </li>
+          <li>
+            Open <span className="font-medium text-foreground">Results</span> for the dashboard, then
+            <span className="font-medium text-foreground"> Analysis</span> for insights.
+          </li>
+          <li>
+            Save a baseline, refactor in Simulation, analyze again, then use{" "}
+            <span className="font-medium text-foreground">Comparison</span>.
+          </li>
+        </ol>
+        <p className="text-xs">
+          Safety: the backend only runs <code className="text-primary">ast.parse</code> and Radon
+          visitors. Your code is never executed.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

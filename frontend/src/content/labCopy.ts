@@ -42,7 +42,7 @@ export const COPY: Record<LabSection, { title: string; body: ReactNodeLike }> = 
   procedure: {
     title: "Procedure",
     body: [
-      "1. Load the sample (or paste your own Python). Code is never executed — only parsed.",
+      "1. Open Simulation and load the sample (or paste your own Python). Code is never executed — only parsed.",
       "2. Click Analyze Code. Watch the pipeline: Source → AST → Functions → LOC → Operators → Complexity → CFG → Metrics → Insights.",
       "3. Inspect KPI cards, function table, and charts. Click a function to jump in the editor.",
       "4. Open Simulation, select a function CFG, and Step / Play. At decisions choose true or false (graph walk, not a Python VM).",

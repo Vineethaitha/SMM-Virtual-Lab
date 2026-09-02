@@ -1,4 +1,4 @@
-export const SAMPLE_PYTHON = `"""SMM Virtual Lab — Exercise 1 sample.
+export const SAMPLE_PYTHON = `"""21CSC403T Virtual Lab — Exercise 1 sample.
 Nested decisions, multiple functions, and a simple helper.
 Edit this code, then click Analyze Code.
 """

@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("rounded-lg border border-border bg-card text-card-foreground", className)}
+      className={cn("rounded-lg border border-border bg-card text-card-foreground shadow-sm", className)}
       {...props}
     />
   );
@@ -29,9 +29,9 @@ export function Badge({
 }: React.HTMLAttributes<HTMLSpanElement> & { variant?: "default" | "warn" | "crit" | "ok" }) {
   const styles = {
     default: "bg-secondary text-muted-foreground",
-    warn: "bg-amber-500/15 text-amber-300",
-    crit: "bg-red-500/15 text-red-300",
-    ok: "bg-emerald-500/15 text-emerald-300",
+    warn: "bg-amber-100 text-amber-800",
+    crit: "bg-red-100 text-red-700",
+    ok: "bg-emerald-100 text-emerald-800",
   };
   return (
     <span

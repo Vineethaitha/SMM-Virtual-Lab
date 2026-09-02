@@ -1,26 +1,55 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 96%;
-    --card: 222 40% 8%;
-    --card-foreground: 210 40% 96%;
-    --primary: 199 89% 48%;
-    --primary-foreground: 222 47% 6%;
-    --secondary: 217 33% 14%;
-    --secondary-foreground: 210 40% 96%;
-    --muted: 217 33% 12%;
-    --muted-foreground: 215 16% 65%;
-    --accent: 199 89% 48%;
-    --accent-foreground: 222 47% 6%;
+    --background: 220 33% 97%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 217 91% 60%;
+    --primary-dark: 224 76% 40%;
+
+    --secondary: 43 74% 94%;
+    --secondary-foreground: 222 47% 11%;
+
+    --accent: 43 89% 48%;
+    --accent-foreground: 222 47% 11%;
+
+    --muted: 214 32% 91%;
+    --muted-foreground: 222 20% 40%;
+
     --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 25% 16%;
-    --input: 217 25% 16%;
-    --ring: 199 89% 48%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 25% 86%;
+    --input: 214 25% 86%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.5rem;
+
+    --gradient-hero-from: 224 76% 40%;
+    --gradient-hero-via: 221 83% 50%;
+    --gradient-hero-to: 213 94% 58%;
+    --gradient-primary-from: 221 83% 53%;
+    --gradient-primary-to: 213 94% 60%;
+
+    --glass-bg: 0 0% 100% / 0.78;
+    --glass-border: 0 0% 100% / 0.35;
+
+    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "Fira Code", ui-monospace, monospace;
+    --shadow-glow: 0 0 40px hsl(217 79% 37% / 0.14);
   }
 
   * {
@@ -30,11 +59,12 @@
   html,
   body,
   #root {
-    height: 100%;
+    min-height: 100%;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
   }
 
   ::-webkit-scrollbar {
@@ -42,8 +72,23 @@
     height: 8px;
   }
   ::-webkit-scrollbar-thumb {
-    background: hsl(217 25% 24%);
+    background: hsl(217 25% 78%);
     border-radius: 4px;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    @apply bg-gradient-to-br from-primary to-[hsl(var(--gradient-primary-to))];
+  }
+
+  .gradient-hero {
+    @apply bg-gradient-to-br from-[hsl(var(--gradient-hero-from))] via-[hsl(var(--gradient-hero-via))] to-[hsl(var(--gradient-hero-to))];
+  }
+
+  .glass {
+    @apply backdrop-blur-xl border-[hsl(var(--glass-border))];
+    background: hsl(var(--glass-bg));
   }
 }
 
@@ -59,48 +104,42 @@
   }
 }
 
-.monaco-editor,
-.monaco-editor .margin,
-.monaco-editor-background {
-  background-color: #0b1220 !important;
-}
-
 .react-flow__controls {
-  background: hsl(222 40% 8%) !important;
-  border: 1px solid hsl(217 25% 16%) !important;
+  background: hsl(0 0% 100%) !important;
+  border: 1px solid hsl(var(--border)) !important;
   box-shadow: none !important;
 }
 .react-flow__controls-button {
-  background: hsl(222 40% 8%) !important;
-  border-bottom: 1px solid hsl(217 25% 16%) !important;
-  fill: #94a3b8 !important;
+  background: hsl(0 0% 100%) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  fill: hsl(222 20% 40%) !important;
 }
 
 .cc-high {
-  background: rgba(248, 113, 113, 0.12) !important;
+  background: rgba(185, 28, 28, 0.1) !important;
 }
 .cc-mid {
-  background: rgba(251, 191, 36, 0.1) !important;
+  background: rgba(180, 130, 20, 0.12) !important;
 }
 .cc-select {
-  background: rgba(56, 189, 248, 0.14) !important;
+  background: rgba(30, 80, 170, 0.12) !important;
 }
 .cc-high-glyph {
-  background: #f87171;
+  background: #dc2626;
   width: 4px !important;
   margin-left: 3px;
 }
 .cc-mid-glyph {
-  background: #fbbf24;
+  background: #ca8a04;
   width: 4px !important;
   margin-left: 3px;
 }
 .cc-low-glyph {
-  background: #34d399;
+  background: #059669;
   width: 4px !important;
   margin-left: 3px;
 }
 
 .sim-current {
-  filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.85));
+  filter: drop-shadow(0 0 8px rgba(201, 162, 39, 0.85));
 }

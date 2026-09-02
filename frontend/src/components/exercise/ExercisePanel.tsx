@@ -105,7 +105,7 @@ export function ExercisePanel() {
                 </Button>
               </div>
               {m === "checked" && (
-                <p className={ok ? "text-sm text-emerald-300" : "text-sm text-red-300"}>
+                <p className={ok ? "text-sm text-emerald-700" : "text-sm text-red-700"}>
                   {ok ? "Correct." : `Not quite. Expected ${q.expected}.`}
                 </p>
               )}

@@ -70,12 +70,12 @@ export function CodeWorkspace() {
               key={fn.qualified_name}
               type="button"
               onClick={() => jumpToFunction(fn.name)}
-              className="rounded bg-secondary px-2 py-0.5 font-mono text-[11px] hover:bg-slate-700"
+              className="rounded bg-muted px-2 py-0.5 font-mono text-[11px] hover:bg-secondary"
             >
               {fn.name}
               <span
                 className={
-                  fn.cc >= 10 ? "text-red-300" : fn.cc >= 6 ? "text-amber-300" : "text-emerald-300"
+                  fn.cc >= 10 ? "text-red-700" : fn.cc >= 6 ? "text-amber-700" : "text-emerald-700"
                 }
               >
                 {" "}
@@ -92,7 +92,7 @@ export function CodeWorkspace() {
           <Editor
             height="100%"
             defaultLanguage="python"
-            theme="vs-dark"
+            theme="vs"
             value={source}
             onChange={(v) => setSource(v ?? "")}
             onMount={onMount}
@@ -100,7 +100,7 @@ export function CodeWorkspace() {
             options={{
               minimap: { enabled: true },
               fontSize: 13,
-              fontFamily: "IBM Plex Mono, monospace",
+              fontFamily: "Fira Code, monospace",
               glyphMargin: true,
               scrollBeyondLastLine: false,
               automaticLayout: true,

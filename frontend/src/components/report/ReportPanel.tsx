@@ -73,7 +73,7 @@ export function ReportPanel() {
     title: "Software Code Metrics Analysis",
     origin: "sample",
     github: "",
-    description: "Python module analyzed in SMM Virtual Lab Exercise 1.",
+    description: "Python module analyzed in 21CSC403T Virtual Lab Exercise 1.",
     justification:
       "Radon is used because the lab is Python-only. It exposes LOC, cyclomatic complexity, Halstead, and MI from AST visitors without executing source.",
     refactor: "",
@@ -270,7 +270,7 @@ function toMarkdown(
   analysis: AnalysisResult,
   rows: ReturnType<typeof compareAnalyses>,
 ) {
-  return `# SMM Exercise 1 Report
+  return `# 21CSC403T Exercise 1 Report
 
 ## 1. Student & Project
 - Names: ${form.names}

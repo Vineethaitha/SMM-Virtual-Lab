@@ -18,7 +18,7 @@ function Explain({ exp }: { exp: MetricExplanation }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="mt-2 space-y-1 text-[11px] text-muted-foreground">
-      <button type="button" className="text-sky-400 hover:underline" onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="text-primary hover:underline" onClick={() => setOpen((o) => !o)}>
         {open ? "Hide" : "What is this metric?"}
       </button>
       {open && (
@@ -107,11 +107,11 @@ export function MetricsDashboard() {
         <CardContent className="h-48">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={analysis.functions.map((f) => ({ name: f.name, cc: f.cc }))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 11 }} />
-              <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
-              <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #1e293b" }} />
-              <Bar dataKey="cc" fill="#38bdf8" radius={[4, 4, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#d6deea" />
+              <XAxis dataKey="name" tick={{ fill: "#4b5870", fontSize: 11 }} />
+              <YAxis tick={{ fill: "#4b5870", fontSize: 11 }} />
+              <Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #d6deea" }} />
+              <Bar dataKey="cc" fill="#1e4d8c" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -129,11 +129,11 @@ export function MetricsDashboard() {
                 { name: "Effort", value: Number(analysis.halstead.effort.toFixed(1)) },
               ]}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-              <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 11 }} />
-              <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
-              <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #1e293b" }} />
-              <Bar dataKey="value" fill="#34d399" radius={[4, 4, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#d6deea" />
+              <XAxis dataKey="name" tick={{ fill: "#4b5870", fontSize: 11 }} />
+              <YAxis tick={{ fill: "#4b5870", fontSize: 11 }} />
+              <Tooltip contentStyle={{ background: "#ffffff", border: "1px solid #d6deea" }} />
+              <Bar dataKey="value" fill="#c9a227" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
@@ -205,7 +205,7 @@ export function InsightsList() {
           </div>
           <p className="mt-1 text-xs text-muted-foreground">{i.detail}</p>
           {i.function && (
-            <Button variant="ghost" size="sm" className="mt-1 h-7 px-2 text-sky-400" onClick={() => jumpToFunction(i.function!)}>
+            <Button variant="ghost" size="sm" className="mt-1 h-7 px-2 text-primary" onClick={() => jumpToFunction(i.function!)}>
               Jump to {i.function}
             </Button>
           )}

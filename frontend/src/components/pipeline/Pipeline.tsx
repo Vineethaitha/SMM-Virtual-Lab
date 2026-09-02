@@ -15,7 +15,7 @@ export function Pipeline() {
             className={cn(
               "rounded-full px-2 py-0.5 text-[10px] font-medium",
               active && "bg-primary text-primary-foreground",
-              !active && done && "bg-emerald-500/15 text-emerald-300",
+              !active && done && "bg-emerald-100 text-emerald-800",
               !active && !done && "bg-secondary text-muted-foreground",
             )}
           >

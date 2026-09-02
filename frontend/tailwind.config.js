@@ -1,6 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: ["class"],
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
@@ -36,13 +35,13 @@ export default {
         },
       },
       borderRadius: {
-        lg: "0.65rem",
-        md: "0.5rem",
-        sm: "0.35rem",
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
-        sans: ["IBM Plex Sans", "ui-sans-serif", "system-ui"],
-        mono: ["IBM Plex Mono", "ui-monospace", "monospace"],
+        sans: ["Inter", "ui-sans-serif", "system-ui"],
+        mono: ["Fira Code", "ui-monospace", "monospace"],
       },
     },
   },
