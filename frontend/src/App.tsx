@@ -3,6 +3,7 @@ import { LabShell } from "@/components/layout/LabShell";
 import { LabProvider } from "@/state/LabContext";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { HomePage } from "@/pages/HomePage";
+import { CustomerSatisfactionPage } from "@/pages/CustomerSatisfactionPage";
 import { getExperiment } from "@/data/experiments";
 
 function LabRoute() {
@@ -15,9 +16,12 @@ function LabRoute() {
 
 function ExperimentGate() {
   const { id } = useParams();
-  const exp = getExperiment(Number(id));
+  const expId = Number(id);
+  const exp = getExperiment(expId);
   if (!exp) return <Navigate to="/" replace />;
   if (!exp.implemented) return <ComingSoonPage />;
+  // Experiment 4 has its own dedicated page
+  if (expId === 4) return <CustomerSatisfactionPage />;
   return <LabRoute />;
 }
 
