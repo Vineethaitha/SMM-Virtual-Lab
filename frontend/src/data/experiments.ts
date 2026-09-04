@@ -51,7 +51,7 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Comment on class size, cohesion, coupling, and response set from an object-oriented design.",
     icon: "Boxes",
-    implemented: false,
+    implemented: true,
   },
   {
     id: 6,
