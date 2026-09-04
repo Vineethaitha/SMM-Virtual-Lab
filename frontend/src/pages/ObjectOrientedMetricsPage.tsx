@@ -10,7 +10,7 @@ import {
   Target, Lightbulb, BookOpen, ClipboardList, ListChecks,
   Play, BarChart3, FlaskConical, GitCompare, FileText,
   Boxes, ArrowRight, Check, X, Minus, RotateCcw, Download,
-  TrendingUp, TrendingDown, Info,
+  TrendingUp, TrendingDown, Info, Plus, Trash2, Edit2, GitBranch,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -23,6 +23,7 @@ import {
   EXP5_QUIZ, EXP5_TABS, EXP5_STRATEGIES,
   exp5_computeAllMetrics,
   type Exp5Tab, type Exp5ClassMetrics,
+  type Exp5ClassDef, type Exp5Relationship,
 } from "@/data/exp5Data";
 
 // ─── Pre-computed metrics (stable, derived from constants) ───────
@@ -803,24 +804,467 @@ function Exp5ExerciseTab({ selectedId, onSelect }: {
   );
 }
 
-// ─── Simulation Tab ───────────────────────────────────────────────
-function Exp5SimulationTab({ selectedId, onSelect }: {
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
-}) {
+// ─── Custom Diagram Components ────────────────────────────────────
+
+/** Renders one custom class box, no interaction needed */
+function Exp5CustomClassBox({ cls, metrics }: { cls: Exp5ClassDef; metrics: Exp5ClassMetrics | undefined }) {
   return (
-    <div className="space-y-4">
-      <Exp5Card title="Interactive Class Diagram Simulation" icon={Play}>
-        <p className="text-sm text-slate-500 mb-4">
-          Click any class box to select it and inspect its metrics. Related classes and connections are
-          highlighted automatically.
-        </p>
-        <Exp5Diagram selectedId={selectedId} onSelect={onSelect} />
+    <div
+      style={{
+        border: "2px solid #3b82f6",
+        borderRadius: 8,
+        overflow: "hidden",
+        minWidth: 180,
+        boxShadow: "0 2px 8px rgba(59,130,246,0.12)",
+        background: "white",
+        flex: "0 0 auto",
+      }}
+    >
+      <div style={{
+        background: "#2563eb", color: "white", textAlign: "center",
+        padding: "6px 8px", fontSize: 13, fontWeight: 700, letterSpacing: 0.2,
+      }}>
+        {cls.name}
+      </div>
+      <div style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0", padding: "4px 8px", minHeight: 22 }}>
+        {cls.attributes.length === 0
+          ? <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>— no attributes —</div>
+          : cls.attributes.map(a => (
+            <div key={a} style={{ fontSize: 11, color: "#334155", fontFamily: "Fira Code, monospace", lineHeight: "20px" }}>- {a}</div>
+          ))}
+      </div>
+      <div style={{ background: "white", padding: "4px 8px", minHeight: 22 }}>
+        {cls.methods.length === 0
+          ? <div style={{ fontSize: 10, color: "#94a3b8", fontStyle: "italic" }}>— no methods —</div>
+          : cls.methods.map(m => (
+            <div key={m} style={{ fontSize: 11, color: "#1e3a5f", fontFamily: "Fira Code, monospace", lineHeight: "20px" }}>+ {m}</div>
+          ))}
+      </div>
+      {metrics && (
+        <div style={{ background: "#eff6ff", padding: "4px 8px", borderTop: "1px solid #dbeafe", fontSize: 10, color: "#1e40af" }}>
+          Size: <strong>{metrics.sizeCategory}</strong> &nbsp;|&nbsp;
+          Coupling: <strong>{metrics.couplingCategory}</strong> &nbsp;|&nbsp;
+          ERS: <strong>{metrics.estimatedResponseSet}</strong>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Custom diagram builder form + live metrics */
+function Exp5CustomDiagramBuilder({
+  classes, rels, onSetClasses, onSetRels,
+}: {
+  classes: Exp5ClassDef[];
+  rels: Exp5Relationship[];
+  onSetClasses: (cls: Exp5ClassDef[]) => void;
+  onSetRels: (rels: Exp5Relationship[]) => void;
+}) {
+  const setClasses = onSetClasses;
+  const setRels = onSetRels;
+
+  // ── add-class form
+  const [newName, setNewName] = useState("");
+  const [newAttrs, setNewAttrs] = useState(""); // comma-separated
+  const [newMethods, setNewMethods] = useState(""); // comma-separated
+  const [nameError, setNameError] = useState("");
+
+  // ── editing
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editAttrs, setEditAttrs] = useState("");
+  const [editMethods, setEditMethods] = useState("");
+
+  // ── add-relationship form
+  const [relFrom, setRelFrom] = useState("");
+  const [relTo, setRelTo] = useState("");
+  const [relType, setRelType] = useState<"association" | "generalization">("association");
+  const [relError, setRelError] = useState("");
+
+  // ── compute live metrics
+  const customCohesion = useMemo(() =>
+    classes.map(c => ({ classId: c.id, level: "High" as const, reason: "User-defined class." })),
+    [classes]
+  );
+  const customMetrics = useMemo(() =>
+    exp5_computeAllMetrics(classes, rels, customCohesion),
+    [classes, rels, customCohesion]
+  );
+
+  function parseList(raw: string): string[] {
+    return raw.split(",").map(s => s.trim()).filter(Boolean);
+  }
+
+  function addClass(e: React.FormEvent) {
+    e.preventDefault();
+    const name = newName.trim();
+    if (!name) { setNameError("Class name is required."); return; }
+    if (classes.some(c => c.id === name)) { setNameError(`Class "${name}" already exists.`); return; }
+    setNameError("");
+    const cls: Exp5ClassDef = {
+      id: name,
+      name,
+      attributes: parseList(newAttrs),
+      methods: parseList(newMethods),
+    };
+    setClasses(prev => [...prev, cls]);
+    setNewName(""); setNewAttrs(""); setNewMethods("");
+    if (!relFrom) setRelFrom(name);
+  }
+
+  function deleteClass(id: string) {
+    setClasses(prev => prev.filter(c => c.id !== id));
+    setRels(prev => prev.filter(r => r.from !== id && r.to !== id));
+    if (editingId === id) setEditingId(null);
+  }
+
+  function startEdit(cls: Exp5ClassDef) {
+    setEditingId(cls.id);
+    setEditName(cls.name);
+    setEditAttrs(cls.attributes.join(", "));
+    setEditMethods(cls.methods.join(", "));
+  }
+
+  function saveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    const newNameTrimmed = editName.trim();
+    if (!newNameTrimmed) return;
+    setClasses(prev => prev.map(c => c.id === editingId
+      ? { id: newNameTrimmed, name: newNameTrimmed, attributes: parseList(editAttrs), methods: parseList(editMethods) }
+      : c
+    ));
+    // update rels that referenced the old id
+    setRels(prev => prev.map(r => ({
+      ...r,
+      from: r.from === editingId ? newNameTrimmed : r.from,
+      to: r.to === editingId ? newNameTrimmed : r.to,
+    })));
+    setEditingId(null);
+  }
+
+  function addRel(e: React.FormEvent) {
+    e.preventDefault();
+    if (!relFrom || !relTo) { setRelError("Select both classes."); return; }
+    if (relFrom === relTo) { setRelError("A class cannot relate to itself."); return; }
+    if (rels.some(r => r.from === relFrom && r.to === relTo)) { setRelError("This relationship already exists."); return; }
+    setRelError("");
+    setRels(prev => [...prev, { from: relFrom, to: relTo, type: relType }]);
+  }
+
+  function deleteRel(idx: number) {
+    setRels(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  const inputCls = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const labelCls = "mb-1 block text-xs font-medium text-slate-500";
+
+  return (
+    <div className="space-y-5">
+      {/* ── Add Class ── */}
+      <Exp5Card title="Add a Class" icon={Plus}>
+        <form onSubmit={addClass} className="space-y-3" noValidate>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <label className={labelCls} htmlFor="cus-cls-name">Class Name <span className="text-rose-500">*</span></label>
+              <input id="cus-cls-name" className={inputCls} placeholder="e.g. Vehicle" value={newName}
+                onChange={e => setNewName(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls} htmlFor="cus-cls-attrs">Attributes <span className="text-slate-400">(comma-separated)</span></label>
+              <input id="cus-cls-attrs" className={inputCls} placeholder="e.g. id, name, speed" value={newAttrs}
+                onChange={e => setNewAttrs(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls} htmlFor="cus-cls-methods">Methods <span className="text-slate-400">(comma-separated)</span></label>
+              <input id="cus-cls-methods" className={inputCls} placeholder="e.g. start(), stop()" value={newMethods}
+                onChange={e => setNewMethods(e.target.value)} />
+            </div>
+          </div>
+          {nameError && <p className="text-xs text-rose-600">{nameError}</p>}
+          <button id="cus-add-class" type="submit"
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
+            <Plus className="h-3.5 w-3.5" /> Add Class
+          </button>
+        </form>
       </Exp5Card>
 
-      <Exp5Card title="Class Inspector" icon={Info}>
-        <Exp5DetailsPanel selectedId={selectedId} />
-      </Exp5Card>
+      {/* ── Class List + Edit ── */}
+      {classes.length > 0 && (
+        <Exp5Card title={`Classes (${classes.length})`} icon={Boxes}>
+          <div className="space-y-3">
+            {classes.map(cls => (
+              <div key={cls.id}>
+                {editingId === cls.id ? (
+                  <form onSubmit={saveEdit} className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
+                    <p className="text-xs font-semibold text-blue-700 mb-2">Editing: {cls.name}</p>
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div>
+                        <label className={labelCls} htmlFor="edit-cls-name">Class Name</label>
+                        <input id="edit-cls-name" className={inputCls} value={editName} onChange={e => setEditName(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className={labelCls} htmlFor="edit-cls-attrs">Attributes</label>
+                        <input id="edit-cls-attrs" className={inputCls} value={editAttrs} onChange={e => setEditAttrs(e.target.value)} />
+                      </div>
+                      <div>
+                        <label className={labelCls} htmlFor="edit-cls-methods">Methods</label>
+                        <input id="edit-cls-methods" className={inputCls} value={editMethods} onChange={e => setEditMethods(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="submit" className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
+                        <Check className="h-3 w-3" /> Save
+                      </button>
+                      <button type="button" onClick={() => setEditingId(null)} className="flex items-center gap-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50">
+                        <X className="h-3 w-3" /> Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-blue-800 text-sm">{cls.name}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Attrs: {cls.attributes.length > 0 ? cls.attributes.join(", ") : "—"}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Methods: {cls.methods.length > 0 ? cls.methods.join(", ") : "—"}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <button type="button" onClick={() => startEdit(cls)}
+                        className="rounded bg-blue-50 p-1.5 text-blue-600 hover:bg-blue-100 transition-colors">
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button type="button" onClick={() => deleteClass(cls.id)}
+                        className="rounded bg-red-50 p-1.5 text-red-500 hover:bg-red-100 transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </Exp5Card>
+      )}
+
+      {/* ── Add Relationship ── */}
+      {classes.length >= 2 && (
+        <Exp5Card title="Add a Relationship" icon={GitBranch}>
+          <form onSubmit={addRel} className="space-y-3" noValidate>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <label className={labelCls} htmlFor="cus-rel-from">From Class</label>
+                <select id="cus-rel-from" className={inputCls} value={relFrom} onChange={e => setRelFrom(e.target.value)}>
+                  <option value="">— select —</option>
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} htmlFor="cus-rel-to">To Class</label>
+                <select id="cus-rel-to" className={inputCls} value={relTo} onChange={e => setRelTo(e.target.value)}>
+                  <option value="">— select —</option>
+                  {classes.filter(c => c.id !== relFrom).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls} htmlFor="cus-rel-type">Type</label>
+                <select id="cus-rel-type" className={inputCls} value={relType}
+                  onChange={e => setRelType(e.target.value as "association" | "generalization")}>
+                  <option value="association">Association</option>
+                  <option value="generalization">Generalization (Inheritance)</option>
+                </select>
+              </div>
+            </div>
+            {relError && <p className="text-xs text-rose-600">{relError}</p>}
+            <button id="cus-add-rel" type="submit"
+              className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">
+              <Plus className="h-3.5 w-3.5" /> Add Relationship
+            </button>
+          </form>
+
+          {rels.length > 0 && (
+            <div className="mt-4 space-y-1.5">
+              {rels.map((r, i) => (
+                <div key={i} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
+                  <span className="text-slate-700">
+                    <strong>{r.from}</strong>
+                    <span className="mx-2 text-slate-400">
+                      {r.type === "generalization" ? "──▷" : "──▶"}
+                    </span>
+                    <strong>{r.to}</strong>
+                    <span className="ml-2 text-xs text-slate-400">({r.type})</span>
+                  </span>
+                  <button type="button" onClick={() => deleteRel(i)}
+                    className="rounded bg-red-50 p-1 text-red-500 hover:bg-red-100">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Exp5Card>
+      )}
+
+      {/* ── Live Diagram Preview ── */}
+      {classes.length > 0 && (
+        <Exp5Card title="Diagram Preview" icon={Play}>
+          <div className="overflow-x-auto">
+            <div className="flex flex-wrap gap-4 pb-2">
+              {classes.map(cls => (
+                <Exp5CustomClassBox
+                  key={cls.id}
+                  cls={cls}
+                  metrics={customMetrics.find(m => m.id === cls.id)}
+                />
+              ))}
+            </div>
+            {rels.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-100">
+                <p className="text-xs font-medium text-slate-500 mb-2">Relationships</p>
+                <div className="flex flex-wrap gap-2">
+                  {rels.map((r, i) => (
+                    <span key={i} className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium",
+                      r.type === "generalization" ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"
+                    )}>
+                      {r.from} {r.type === "generalization" ? "◁──" : "◀──"} {r.to}
+                      <span className="text-[10px] opacity-70">({r.type})</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </Exp5Card>
+      )}
+
+      {/* ── Live Metrics Table ── */}
+      {customMetrics.length > 0 && (
+        <Exp5Card title="Computed OO Metrics" icon={BarChart3}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  {["Class","Attrs","Methods","Total","Size","Outgoing","Incoming","Coupling","ERS"].map(h => (
+                    <th key={h} className="px-3 py-2 text-left whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {customMetrics.map(m => (
+                  <tr key={m.id} className="border-t border-slate-100 hover:bg-slate-50">
+                    <td className="px-3 py-2 font-semibold text-blue-800">{m.name}</td>
+                    <td className="px-3 py-2 text-center">{m.attributeCount}</td>
+                    <td className="px-3 py-2 text-center">{m.methodCount}</td>
+                    <td className="px-3 py-2 text-center font-medium">{m.totalMembers}</td>
+                    <td className="px-3 py-2">
+                      <Exp5Badge label={m.sizeCategory}
+                        color={m.sizeCategory === "Large" ? "bg-rose-100 text-rose-700" : m.sizeCategory === "Medium" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"} />
+                    </td>
+                    <td className="px-3 py-2 text-center">{m.outgoing}</td>
+                    <td className="px-3 py-2 text-center">{m.incoming}</td>
+                    <td className="px-3 py-2">
+                      <Exp5Badge label={m.couplingCategory}
+                        color={m.couplingCategory === "High" ? "bg-rose-100 text-rose-700" : m.couplingCategory === "Medium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"} />
+                    </td>
+                    <td className="px-3 py-2 text-center font-bold text-indigo-700">{m.estimatedResponseSet}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 text-xs text-slate-400 italic">
+            Cohesion is qualitatively set to High for user-defined classes. Add domain-specific knowledge to interpret cohesion manually.
+          </p>
+        </Exp5Card>
+      )}
+
+      {classes.length === 0 && (
+        <div className="flex flex-col items-center gap-3 py-12 text-center text-slate-400">
+          <Boxes className="h-12 w-12 opacity-30" />
+          <p className="font-medium">No classes added yet.</p>
+          <p className="text-sm">Use the form above to add your first class.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Simulation Tab ───────────────────────────────────────────────
+interface Exp5SimulationTabProps {
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+  simMode: "prebuilt" | "custom";
+  onSetSimMode: (m: "prebuilt" | "custom") => void;
+  customClasses: Exp5ClassDef[];
+  customRels: Exp5Relationship[];
+  onSetCustomClasses: (cls: Exp5ClassDef[]) => void;
+  onSetCustomRels: (rels: Exp5Relationship[]) => void;
+}
+
+function Exp5SimulationTab({
+  selectedId, onSelect,
+  simMode, onSetSimMode,
+  customClasses, customRels, onSetCustomClasses, onSetCustomRels,
+}: Exp5SimulationTabProps) {
+
+  return (
+    <div className="space-y-4">
+      {/* Mode toggle */}
+      <div className="flex gap-2">
+        <button
+          id="exp5-mode-prebuilt"
+          type="button"
+          onClick={() => onSetSimMode("prebuilt")}
+          className={cn(
+            "flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-all",
+            simMode === "prebuilt" ? "bg-blue-600 text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600"
+          )}
+        >
+          <Boxes className="h-3.5 w-3.5" /> Pre-built Diagram
+        </button>
+        <button
+          id="exp5-mode-custom"
+          type="button"
+          onClick={() => onSetSimMode("custom")}
+          className={cn(
+            "flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-all",
+            simMode === "custom" ? "bg-indigo-600 text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600"
+          )}
+        >
+          <Edit2 className="h-3.5 w-3.5" /> Custom Diagram
+        </button>
+      </div>
+
+      {simMode === "prebuilt" ? (
+        <>
+          <Exp5Card title="Interactive Class Diagram Simulation" icon={Play}>
+            <p className="text-sm text-slate-500 mb-4">
+              Click any class box to select it and inspect its metrics. Related classes and connections are
+              highlighted automatically.
+            </p>
+            <Exp5Diagram selectedId={selectedId} onSelect={onSelect} />
+          </Exp5Card>
+          <Exp5Card title="Class Inspector" icon={Info}>
+            <Exp5DetailsPanel selectedId={selectedId} />
+          </Exp5Card>
+        </>
+      ) : (
+        <>
+          <Exp5InfoBox>
+            Build your own class diagram by adding classes, attributes, methods and relationships.
+            OO metrics (size, coupling, estimated response set) are computed live.
+          </Exp5InfoBox>
+          <Exp5CustomDiagramBuilder
+            classes={customClasses}
+            rels={customRels}
+            onSetClasses={onSetCustomClasses}
+            onSetRels={onSetCustomRels}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -1421,9 +1865,14 @@ const EXP5_TAB_ICONS: Record<Exp5Tab, React.ComponentType<{ className?: string }
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════════
 export function ObjectOrientedMetricsPage() {
-  useParams(); // exposes :id; not needed locally
+  useParams();
   const [activeTab, setActiveTab] = useState<Exp5Tab>("aim");
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+
+  // Simulation state — lifted so it survives tab switches
+  const [simMode, setSimMode] = useState<"prebuilt" | "custom">("prebuilt");
+  const [customClasses, setCustomClasses] = useState<Exp5ClassDef[]>([]);
+  const [customRels, setCustomRels] = useState<Exp5Relationship[]>([]);
 
   const handleSelectClass = useCallback((id: string | null) => {
     setSelectedClassId(id);
@@ -1431,6 +1880,9 @@ export function ObjectOrientedMetricsPage() {
 
   function handleReset() {
     setSelectedClassId(null);
+    setSimMode("prebuilt");
+    setCustomClasses([]);
+    setCustomRels([]);
     setActiveTab("aim");
   }
 
@@ -1441,7 +1893,18 @@ export function ObjectOrientedMetricsPage() {
       case "theory":     return <Exp5TheoryTab />;
       case "procedure":  return <Exp5ProcedureTab />;
       case "exercise":   return <Exp5ExerciseTab selectedId={selectedClassId} onSelect={handleSelectClass} />;
-      case "simulation": return <Exp5SimulationTab selectedId={selectedClassId} onSelect={handleSelectClass} />;
+      case "simulation": return (
+        <Exp5SimulationTab
+          selectedId={selectedClassId}
+          onSelect={handleSelectClass}
+          simMode={simMode}
+          onSetSimMode={setSimMode}
+          customClasses={customClasses}
+          customRels={customRels}
+          onSetCustomClasses={setCustomClasses}
+          onSetCustomRels={setCustomRels}
+        />
+      );
       case "results":    return <Exp5ResultsTab />;
       case "analysis":   return <Exp5AnalysisTab />;
       case "comparison": return <Exp5ComparisonTab />;

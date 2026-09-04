@@ -272,10 +272,12 @@ function Exp4ProcedureTab() {
 interface Exp4ExerciseTabProps {
   responses: Exp4Response[];
   selectedApp: string;
+  submittedApps: Set<string>;
   onAddResponse: (r: Exp4Response) => void;
+  onMarkAppSubmitted: (app: string) => void;
 }
 
-function Exp4ExerciseTab({ responses, selectedApp, onAddResponse }: Exp4ExerciseTabProps) {
+function Exp4ExerciseTab({ responses, selectedApp, submittedApps, onAddResponse, onMarkAppSubmitted }: Exp4ExerciseTabProps) {
   const [app, setApp] = useState(selectedApp);
   const [q1, setQ1] = useState<number>(0);
   const [q2, setQ2] = useState<number>(0);
@@ -285,6 +287,8 @@ function Exp4ExerciseTab({ responses, selectedApp, onAddResponse }: Exp4Exercise
   const [q6, setQ6] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+
+  const alreadySubmitted = submittedApps.has(app);
 
   const totalCount = responses.length;
 
@@ -321,6 +325,7 @@ function Exp4ExerciseTab({ responses, selectedApp, onAddResponse }: Exp4Exercise
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (alreadySubmitted) return;
     const errs: string[] = [];
     if (!q1) errs.push("Q1: Overall Satisfaction is required.");
     if (!q2) errs.push("Q2: Ease of Use is required.");
@@ -338,6 +343,7 @@ function Exp4ExerciseTab({ responses, selectedApp, onAddResponse }: Exp4Exercise
       features: q5,
       comment: q6,
     });
+    onMarkAppSubmitted(app);
     setQ1(0); setQ2(0); setQ3(0); setQ4(0); setQ5(0); setQ6("");
     setSubmitted(true);
     setTimeout(() => setSubmitted(false), 3000);
@@ -356,7 +362,11 @@ function Exp4ExerciseTab({ responses, selectedApp, onAddResponse }: Exp4Exercise
             value={app}
             onChange={e => setApp(e.target.value)}
           >
-            {EXP4_APPS.map(a => <option key={a} value={a}>{a}</option>)}
+            {EXP4_APPS.map(a => (
+              <option key={a} value={a}>
+                {a}{submittedApps.has(a) ? " ✓" : ""}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -372,48 +382,58 @@ function Exp4ExerciseTab({ responses, selectedApp, onAddResponse }: Exp4Exercise
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          <Exp4LikertSelector label="Q1. How satisfied are you with the overall experience of the application?" value={q1} onChange={setQ1} qId="exp4-q1" />
-          <Exp4LikertSelector label="Q2. How satisfied are you with the application's ease of use?" value={q2} onChange={setQ2} qId="exp4-q2" />
-          <Exp4LikertSelector label="Q3. How satisfied are you with the application's performance?" value={q3} onChange={setQ3} qId="exp4-q3" />
-          <Exp4LikertSelector label="Q4. How satisfied are you with the application's reliability?" value={q4} onChange={setQ4} qId="exp4-q4" />
-          <Exp4LikertSelector label="Q5. How satisfied are you with the application's features?" value={q5} onChange={setQ5} qId="exp4-q5" />
-
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="exp4-q6">
-              Q6. What improvement would you most like to see in this application?
-            </label>
-            <textarea
-              id="exp4-q6"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
-              rows={3}
-              placeholder="Describe a suggestion or improvement..."
-              value={q6}
-              onChange={e => setQ6(e.target.value)}
-            />
-          </div>
-
-          {errors.length > 0 && (
-            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 space-y-1">
-              {errors.map(e => <p key={e}>{e}</p>)}
+        {alreadySubmitted ? (
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 py-10 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+              <Check className="h-6 w-6 text-emerald-600" />
             </div>
-          )}
-
-          <div className="flex items-center gap-3">
-            <button
-              id="exp4-submit-response"
-              type="submit"
-              className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-            >
-              Submit Response
-            </button>
-            {submitted && (
-              <span className="flex items-center gap-1 text-sm font-medium text-emerald-600">
-                <Check className="h-4 w-4" /> Response added!
-              </span>
-            )}
+            <p className="font-semibold text-emerald-700">Response already submitted for <span className="italic">{app}</span>.</p>
+            <p className="text-sm text-emerald-600">Each application allows only one response per session. Please select a different application to submit another response.</p>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+            <Exp4LikertSelector label="Q1. How satisfied are you with the overall experience of the application?" value={q1} onChange={setQ1} qId="exp4-q1" />
+            <Exp4LikertSelector label="Q2. How satisfied are you with the application's ease of use?" value={q2} onChange={setQ2} qId="exp4-q2" />
+            <Exp4LikertSelector label="Q3. How satisfied are you with the application's performance?" value={q3} onChange={setQ3} qId="exp4-q3" />
+            <Exp4LikertSelector label="Q4. How satisfied are you with the application's reliability?" value={q4} onChange={setQ4} qId="exp4-q4" />
+            <Exp4LikertSelector label="Q5. How satisfied are you with the application's features?" value={q5} onChange={setQ5} qId="exp4-q5" />
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700" htmlFor="exp4-q6">
+                Q6. What improvement would you most like to see in this application?
+              </label>
+              <textarea
+                id="exp4-q6"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y"
+                rows={3}
+                placeholder="Describe a suggestion or improvement..."
+                value={q6}
+                onChange={e => setQ6(e.target.value)}
+              />
+            </div>
+
+            {errors.length > 0 && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 space-y-1">
+                {errors.map(e => <p key={e}>{e}</p>)}
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <button
+                id="exp4-submit-response"
+                type="submit"
+                className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+              >
+                Submit Response
+              </button>
+              {submitted && (
+                <span className="flex items-center gap-1 text-sm font-medium text-emerald-600">
+                  <Check className="h-4 w-4" /> Response added!
+                </span>
+              )}
+            </div>
+          </form>
+        )}
       </Exp4Card>
     </div>
   );
@@ -423,17 +443,34 @@ function Exp4ExerciseTab({ responses, selectedApp, onAddResponse }: Exp4Exercise
 interface Exp4SimulationTabProps {
   responses: Exp4Response[];
   selectedApp: string;
+  simApp: string;
+  dataset: "sample" | "custom";
+  sampleCount: number;
+  onSetSimApp: (a: string) => void;
+  onSetDataset: (d: "sample" | "custom") => void;
+  onSetSampleCount: (n: number) => void;
   onSetApp: (app: string) => void;
   onSetResponses: (rs: Exp4Response[]) => void;
+  onNavigate: (tab: Exp4Tab) => void;
 }
 
 
-function Exp4SimulationTab({ responses, onSetApp, onSetResponses }: Exp4SimulationTabProps) {
+function Exp4SimulationTab({ responses, onSetApp, onSetResponses, onNavigate }: Exp4SimulationTabProps) {
   const [simApp, setSimApp] = useState(EXP4_APPS[0]);
   const [dataset, setDataset] = useState<"sample" | "custom">("sample");
   const [sampleCount, setSampleCount] = useState<number>(20);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<Partial<Exp4Response>>({});
+
+  // Custom entry form state
+  const [cOverall, setCOverall] = useState<number>(0);
+  const [cEase, setCEase] = useState<number>(0);
+  const [cPerf, setCPerf] = useState<number>(0);
+  const [cRel, setCRel] = useState<number>(0);
+  const [cFeat, setCFeat] = useState<number>(0);
+  const [cComment, setCComment] = useState("");
+  const [cErrors, setCErrors] = useState<string[]>([]);
+  const [cAdded, setCAdded] = useState(false);
 
   const totalCount = responses.length;
 
@@ -449,6 +486,28 @@ function Exp4SimulationTab({ responses, onSetApp, onSetResponses }: Exp4Simulati
 
   function analyzeResponses() {
     onSetApp(simApp);
+    onNavigate("results");
+  }
+
+  function handleCustomAdd(e: React.FormEvent) {
+    e.preventDefault();
+    const errs: string[] = [];
+    if (!cOverall) errs.push("Overall Satisfaction is required.");
+    if (!cEase) errs.push("Ease of Use is required.");
+    if (!cPerf) errs.push("Performance is required.");
+    if (!cRel) errs.push("Reliability is required.");
+    if (!cFeat) errs.push("Features is required.");
+    if (errs.length) { setCErrors(errs); return; }
+    setCErrors([]);
+    onSetApp(simApp);
+    onSetResponses([...responses, {
+      id: Date.now(),
+      overall: cOverall, easeOfUse: cEase, performance: cPerf,
+      reliability: cRel, features: cFeat, comment: cComment,
+    }]);
+    setCOverall(0); setCEase(0); setCPerf(0); setCRel(0); setCFeat(0); setCComment("");
+    setCAdded(true);
+    setTimeout(() => setCAdded(false), 2500);
   }
 
   function startEdit(r: Exp4Response) {
@@ -479,6 +538,29 @@ function Exp4SimulationTab({ responses, onSetApp, onSetResponses }: Exp4Simulati
     setEditData({ ...newR });
   }
 
+  function CustomLikert({ label, value, onChange, qId }: { label: string; value: number; onChange: (v: number) => void; qId: string }) {
+    return (
+      <div className="space-y-1.5">
+        <p className="text-xs font-medium text-slate-600">{label}</p>
+        <div className="flex gap-1.5">
+          {[1, 2, 3, 4, 5].map(v => (
+            <button
+              key={v} id={`${qId}-${v}`} type="button"
+              onClick={() => onChange(v)}
+              className={cn(
+                "flex h-8 w-12 items-center justify-center rounded-lg border text-xs font-semibold transition-all",
+                value === v ? "border-indigo-600 bg-indigo-600 text-white" : "border-slate-300 bg-white text-slate-600 hover:border-indigo-400 hover:bg-indigo-50"
+              )}
+            >{v}</button>
+          ))}
+          <span className="self-center text-[11px] text-slate-400">
+            {value ? ["", "Very Dissatisfied", "Dissatisfied", "Neutral", "Satisfied", "Very Satisfied"][value] : "—"}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   const colLabels: { field: keyof Exp4Response; label: string }[] = [
     { field: "overall", label: "Overall" },
     { field: "easeOfUse", label: "Ease of Use" },
@@ -497,7 +579,7 @@ function Exp4SimulationTab({ responses, onSetApp, onSetResponses }: Exp4Simulati
               id="exp4-sim-app"
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={simApp}
-              onChange={e => setSimApp(e.target.value)}
+              onChange={e => onSetSimApp(e.target.value)}
             >
               {EXP4_APPS.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
@@ -508,35 +590,39 @@ function Exp4SimulationTab({ responses, onSetApp, onSetResponses }: Exp4Simulati
               id="exp4-sim-dataset"
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={dataset}
-              onChange={e => setDataset(e.target.value as "sample" | "custom")}
+              onChange={e => onSetDataset(e.target.value as "sample" | "custom")}
             >
               <option value="sample">Sample Dataset</option>
               <option value="custom">Custom Dataset</option>
             </select>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="exp4-sim-count">Sample Responses</label>
-            <select
-              id="exp4-sim-count"
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={sampleCount}
-              onChange={e => setSampleCount(Number(e.target.value))}
-            >
-              {[10, 20, 30, 50].map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </div>
+          {dataset === "sample" && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="exp4-sim-count">Sample Responses</label>
+              <select
+                id="exp4-sim-count"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={sampleCount}
+                onChange={e => onSetSampleCount(Number(e.target.value))}
+              >
+                {[10, 20, 30, 50].map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-2 mb-5">
-          <button
-            id="exp4-load-sample"
-            type="button"
-            onClick={loadSample}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-            Load Sample Responses
-          </button>
+          {dataset === "sample" && (
+            <button
+              id="exp4-load-sample"
+              type="button"
+              onClick={loadSample}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Load Sample Responses
+            </button>
+          )}
           <button
             id="exp4-clear-responses"
             type="button"
@@ -550,20 +636,23 @@ function Exp4SimulationTab({ responses, onSetApp, onSetResponses }: Exp4Simulati
             id="exp4-analyze-responses"
             type="button"
             onClick={analyzeResponses}
-            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+            disabled={responses.length === 0}
+            className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <BarChart3 className="h-3.5 w-3.5" />
             Analyze Responses
           </button>
-          <button
-            id="exp4-add-response"
-            type="button"
-            onClick={addEmptyResponse}
-            className="flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Response
-          </button>
+          {dataset === "sample" && (
+            <button
+              id="exp4-add-response"
+              type="button"
+              onClick={addEmptyResponse}
+              className="flex items-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Response
+            </button>
+          )}
         </div>
 
         <div className={cn(
@@ -573,6 +662,52 @@ function Exp4SimulationTab({ responses, onSetApp, onSetResponses }: Exp4Simulati
           Responses Collected: {totalCount} / 20
           {totalCount >= 20 && <span className="font-semibold">— Minimum classroom response target reached.</span>}
         </div>
+
+        {/* Custom dataset manual entry form */}
+        {dataset === "custom" && (
+          <div className="mt-2 rounded-xl border border-indigo-200 bg-indigo-50/60 p-5">
+            <p className="mb-4 text-sm font-semibold text-indigo-700 flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Add Custom Response
+            </p>
+            <form onSubmit={handleCustomAdd} className="space-y-4" noValidate>
+              <CustomLikert label="Overall Satisfaction" value={cOverall} onChange={setCOverall} qId="csim-overall" />
+              <CustomLikert label="Ease of Use" value={cEase} onChange={setCEase} qId="csim-ease" />
+              <CustomLikert label="Performance" value={cPerf} onChange={setCPerf} qId="csim-perf" />
+              <CustomLikert label="Reliability" value={cRel} onChange={setCRel} qId="csim-rel" />
+              <CustomLikert label="Features" value={cFeat} onChange={setCFeat} qId="csim-feat" />
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-600" htmlFor="csim-comment">Comment (optional)</label>
+                <textarea
+                  id="csim-comment"
+                  rows={2}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-y"
+                  placeholder="Describe a suggestion or improvement..."
+                  value={cComment}
+                  onChange={e => setCComment(e.target.value)}
+                />
+              </div>
+              {cErrors.length > 0 && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 space-y-1">
+                  {cErrors.map(e => <p key={e}>{e}</p>)}
+                </div>
+              )}
+              <div className="flex items-center gap-3">
+                <button
+                  id="csim-add-response"
+                  type="submit"
+                  className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors"
+                >
+                  <Plus className="h-3.5 w-3.5" /> Add to Dataset
+                </button>
+                {cAdded && (
+                  <span className="flex items-center gap-1 text-sm font-medium text-emerald-600">
+                    <Check className="h-4 w-4" /> Response added!
+                  </span>
+                )}
+              </div>
+            </form>
+          </div>
+        )}
       </Exp4Card>
 
       {responses.length > 0 && (
@@ -935,26 +1070,23 @@ function Exp4AnalysisTab({ responses, selectedApp }: { responses: Exp4Response[]
 
 // ─── Comparison Tab ───────────────────────────────────────────
 function Exp4ComparisonTab({ responses, selectedApp }: { responses: Exp4Response[]; selectedApp: string }) {
-  const [appA, setAppA] = useState(selectedApp);
   const [appB, setAppB] = useState(EXP4_APPS.find(a => a !== selectedApp) ?? EXP4_APPS[1]);
-  const [countA, setCountA] = useState(20);
   const [countB, setCountB] = useState(20);
-  const [responsesA, setResponsesA] = useState<Exp4Response[]>([]);
   const [responsesB, setResponsesB] = useState<Exp4Response[]>([]);
   const [loaded, setLoaded] = useState(false);
 
+  // If the selected app changes from outside, reset
+  const hasResponses = responses.length > 0;
+
   function runComparison() {
-    const rA = responses.length > 0 && appA === selectedApp
-      ? responses
-      : exp4_generateSampleResponses(appA, countA);
+    if (!hasResponses) return;
     const rB = exp4_generateSampleResponses(appB, countB);
-    setResponsesA(rA);
     setResponsesB(rB);
     setLoaded(true);
   }
 
   const compRows = EXP4_FACTORS.map(f => {
-    const aAvg = exp4_round2(exp4_factorAverage(responsesA, f));
+    const aAvg = exp4_round2(exp4_factorAverage(responses, f));
     const bAvg = exp4_round2(exp4_factorAverage(responsesB, f));
     const winner = aAvg > bAvg ? "A" : bAvg > aAvg ? "B" : "tie";
     return { factor: EXP4_FACTOR_LABELS[f], aAvg, bAvg, winner };
@@ -963,40 +1095,56 @@ function Exp4ComparisonTab({ responses, selectedApp }: { responses: Exp4Response
   const chartData = loaded
     ? EXP4_FACTORS.map(f => ({
         name: EXP4_FACTOR_LABELS[f].split(" ")[0],
-        [appA]: exp4_round2(exp4_factorAverage(responsesA, f)),
+        [selectedApp]: exp4_round2(exp4_factorAverage(responses, f)),
         [appB]: exp4_round2(exp4_factorAverage(responsesB, f)),
       }))
     : [];
 
+  if (!hasResponses) {
+    return (
+      <Exp4Card title="Application Comparison" icon={GitCompare}>
+        <div className="flex flex-col items-center gap-4 py-12 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+            <GitCompare className="h-8 w-8 text-slate-400" />
+          </div>
+          <div>
+            <p className="font-semibold text-slate-700">No responses collected yet</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Collect or load survey responses in the <strong>Exercise</strong> or <strong>Simulation</strong> tab first.
+              Your real responses for <strong>{selectedApp}</strong> will be used as App A for comparison.
+            </p>
+          </div>
+        </div>
+      </Exp4Card>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <Exp4Card title="Application Comparison" icon={GitCompare}>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-5">
+        <div className="mb-3 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <span className="font-semibold">App A</span> is fixed to your collected responses for{" "}
+          <span className="font-semibold">{selectedApp}</span> ({responses.length} responses).
+          Choose an <span className="font-semibold">App B</span> to compare against using simulated benchmark data.
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-5">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="exp4-cmp-app-a">Application A</label>
-            <select id="exp4-cmp-app-a" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={appA} onChange={e => setAppA(e.target.value)}>
-              {EXP4_APPS.map(a => <option key={a} value={a}>{a}</option>)}
-            </select>
+            <label className="mb-1 block text-xs font-medium text-slate-500">App A (Your Data)</label>
+            <div className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+              {selectedApp} &mdash; {responses.length} responses
+            </div>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="exp4-cmp-count-a">Responses A</label>
-            <select id="exp4-cmp-count-a" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={countA} onChange={e => setCountA(Number(e.target.value))}>
-              {[10, 20, 30, 50].map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="exp4-cmp-app-b">Application B</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="exp4-cmp-app-b">App B (Benchmark)</label>
             <select id="exp4-cmp-app-b" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={appB} onChange={e => setAppB(e.target.value)}>
-              {EXP4_APPS.filter(a => a !== appA).map(a => <option key={a} value={a}>{a}</option>)}
+              value={appB} onChange={e => { setAppB(e.target.value); setLoaded(false); }}>
+              {EXP4_APPS.filter(a => a !== selectedApp).map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="exp4-cmp-count-b">Responses B</label>
+            <label className="mb-1 block text-xs font-medium text-slate-500" htmlFor="exp4-cmp-count-b">Benchmark Responses</label>
             <select id="exp4-cmp-count-b" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={countB} onChange={e => setCountB(Number(e.target.value))}>
+              value={countB} onChange={e => { setCountB(Number(e.target.value)); setLoaded(false); }}>
               {[10, 20, 30, 50].map(n => <option key={n} value={n}>{n}</option>)}
             </select>
           </div>
@@ -1022,7 +1170,7 @@ function Exp4ComparisonTab({ responses, selectedApp }: { responses: Exp4Response
                 <YAxis domain={[0, 5]} tick={{ fontSize: 11 }} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey={appA} fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey={selectedApp} fill="#3b82f6" radius={[4, 4, 0, 0]} />
                 <Bar dataKey={appB} fill="#f59e0b" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -1034,8 +1182,8 @@ function Exp4ComparisonTab({ responses, selectedApp }: { responses: Exp4Response
                 <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-4 py-2 text-left">Metric</th>
-                    <th className="px-4 py-2 text-center text-blue-600">{appA}</th>
-                    <th className="px-4 py-2 text-center text-amber-600">{appB}</th>
+                    <th className="px-4 py-2 text-center text-blue-600">{selectedApp} (Your Data)</th>
+                    <th className="px-4 py-2 text-center text-amber-600">{appB} (Benchmark)</th>
                     <th className="px-4 py-2 text-left">Result</th>
                   </tr>
                 </thead>
@@ -1067,13 +1215,21 @@ function Exp4ComparisonTab({ responses, selectedApp }: { responses: Exp4Response
 }
 
 // ─── Quiz Tab ─────────────────────────────────────────────────
-function Exp4QuizTab() {
+interface Exp4QuizTabProps {
+  quizAnswers: (number | null)[];
+  quizFinished: boolean;
+  onQuizAnswersChange: (a: (number | null)[]) => void;
+  onQuizFinish: () => void;
+  onQuizReset: () => void;
+}
+
+function Exp4QuizTab({ quizAnswers, quizFinished, onQuizAnswersChange, onQuizFinish, onQuizReset }: Exp4QuizTabProps) {
   const [current, setCurrent] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [answered, setAnswered] = useState(false);
-  const [answers, setAnswers] = useState<(number | null)[]>(Array(10).fill(null));
-  const [finished, setFinished] = useState(false);
+  const [selected, setSelected] = useState<number | null>(quizAnswers[0] ?? null);
+  const [answered, setAnswered] = useState(quizAnswers[0] !== null);
   const [reviewing, setReviewing] = useState(false);
+  const answers = quizAnswers;
+  const finished = quizFinished;
 
   const q = EXP4_QUIZ[current];
   const score = answers.filter((a, i) => a === EXP4_QUIZ[i].correct).length;
@@ -1084,16 +1240,16 @@ function Exp4QuizTab() {
     setAnswered(true);
     const updated = [...answers];
     updated[current] = idx;
-    setAnswers(updated);
+    onQuizAnswersChange(updated);
   }
 
   function handleNext() {
     if (current < EXP4_QUIZ.length - 1) {
       setCurrent(current + 1);
-      setSelected(answers[current + 1]);
+      setSelected(answers[current + 1] ?? null);
       setAnswered(answers[current + 1] !== null);
     } else {
-      setFinished(true);
+      onQuizFinish();
     }
   }
 
@@ -1101,9 +1257,8 @@ function Exp4QuizTab() {
     setCurrent(0);
     setSelected(null);
     setAnswered(false);
-    setAnswers(Array(10).fill(null));
-    setFinished(false);
     setReviewing(false);
+    onQuizReset();
   }
 
   if (finished && !reviewing) {
@@ -1241,7 +1396,14 @@ function Exp4QuizTab() {
 }
 
 // ─── Conclusion Tab (with Report) ─────────────────────────────
-function Exp4ConclusionTab({ responses, selectedApp }: { responses: Exp4Response[]; selectedApp: string }) {
+function Exp4ConclusionTab({
+  responses, selectedApp, quizAnswers, quizFinished,
+}: {
+  responses: Exp4Response[];
+  selectedApp: string;
+  quizAnswers: (number | null)[];
+  quizFinished: boolean;
+}) {
   const reportRef = useRef<HTMLDivElement>(null);
 
   const overallAvg = exp4_round2(exp4_overallAverage(responses));
@@ -1281,6 +1443,14 @@ function Exp4ConclusionTab({ responses, selectedApp }: { responses: Exp4Response
           <div className="flex flex-col items-center gap-3 py-8 text-center text-slate-400">
             <FileText className="h-8 w-8 opacity-40" />
             <p className="text-sm">Load responses to generate the report.</p>
+          </div>
+        ) : !quizFinished ? (
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
+              <ListChecks className="h-7 w-7 text-amber-500" />
+            </div>
+            <p className="font-semibold text-slate-700">Complete the Assessment Quiz first</p>
+            <p className="text-sm text-slate-500">The lab report can only be downloaded after finishing the quiz below.</p>
           </div>
         ) : (
           <>
@@ -1381,6 +1551,58 @@ function Exp4ConclusionTab({ responses, selectedApp }: { responses: Exp4Response
                     : "No recurring qualitative themes were identified from the open-ended responses."}
                 </p>
               </div>
+
+              {/* Quiz Results Section */}
+              {quizFinished && (() => {
+                const quizScore = quizAnswers.filter((a, i) => a === EXP4_QUIZ[i].correct).length;
+                const quizPct = Math.round((quizScore / 10) * 100);
+                const quizPass = quizScore >= 6;
+                return (
+                  <div className="border-t pt-4">
+                    <p className="font-semibold text-slate-800 mb-3">Assessment Quiz Results</p>
+                    <div className="mb-3 flex items-center gap-4 text-sm">
+                      <span className={cn("font-bold", quizPass ? "text-emerald-600" : "text-rose-600")}>
+                        Score: {quizScore}/10 ({quizPct}%) — {quizPass ? "PASS" : "FAIL"}
+                      </span>
+                      <span className="text-slate-500">Correct: {quizScore} &nbsp;|&nbsp; Wrong: {10 - quizScore}</span>
+                    </div>
+                    <table className="w-full border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-300 bg-slate-50">
+                          <th className="px-2 py-1.5 text-left w-6">#</th>
+                          <th className="px-2 py-1.5 text-left">Question</th>
+                          <th className="px-2 py-1.5 text-left">Your Answer</th>
+                          <th className="px-2 py-1.5 text-left">Correct Answer</th>
+                          <th className="px-2 py-1.5 text-center w-14">Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {EXP4_QUIZ.map((qItem, qi) => {
+                          const userIdx = quizAnswers[qi];
+                          const isCorrect = userIdx === qItem.correct;
+                          return (
+                            <tr key={qItem.id} className="border-b border-slate-100">
+                              <td className="px-2 py-1.5 text-slate-400">{qi + 1}</td>
+                              <td className="px-2 py-1.5 text-slate-700">{qItem.question}</td>
+                              <td className="px-2 py-1.5 text-slate-600">
+                                {userIdx !== null ? `${String.fromCharCode(65 + userIdx)}. ${qItem.options[userIdx]}` : "—"}
+                              </td>
+                              <td className="px-2 py-1.5 text-emerald-700 font-medium">
+                                {String.fromCharCode(65 + qItem.correct)}. {qItem.options[qItem.correct]}
+                              </td>
+                              <td className="px-2 py-1.5 text-center font-bold">
+                                {isCorrect
+                                  ? <span className="text-emerald-600">✓</span>
+                                  : <span className="text-rose-500">✗</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </div>
           </>
         )}
@@ -1405,13 +1627,27 @@ const EXP4_TAB_ICONS: Record<Exp4Tab, React.ComponentType<{ className?: string }
 
 // ─── Main Page ────────────────────────────────────────────────
 export function CustomerSatisfactionPage() {
-  useParams(); // exposes URL :id param; not used locally since exp4 is self-contained
+  useParams();
   const [activeTab, setActiveTab] = useState<Exp4Tab>("aim");
   const [responses, setResponses] = useState<Exp4Response[]>([]);
   const [selectedApp, setSelectedApp] = useState<string>("WhatsApp");
+  const [submittedApps, setSubmittedApps] = useState<Set<string>>(new Set());
+
+  // Simulation tab state — lifted to survive tab switches
+  const [simApp, setSimApp] = useState(EXP4_APPS[0]);
+  const [simDataset, setSimDataset] = useState<"sample" | "custom">("sample");
+  const [simSampleCount, setSimSampleCount] = useState<number>(20);
+
+  // Quiz state — lifted to share with ConclusionTab
+  const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>(Array(10).fill(null));
+  const [quizFinished, setQuizFinished] = useState(false);
 
   const handleAddResponse = useCallback((r: Exp4Response) => {
     setResponses(prev => [...prev, r]);
+  }, []);
+
+  const handleMarkAppSubmitted = useCallback((app: string) => {
+    setSubmittedApps(prev => new Set(prev).add(app));
   }, []);
 
   const handleSetResponses = useCallback((rs: Exp4Response[]) => {
@@ -1425,6 +1661,12 @@ export function CustomerSatisfactionPage() {
   function handleReset() {
     setResponses([]);
     setSelectedApp("WhatsApp");
+    setSubmittedApps(new Set());
+    setSimApp(EXP4_APPS[0]);
+    setSimDataset("sample");
+    setSimSampleCount(20);
+    setQuizAnswers(Array(10).fill(null));
+    setQuizFinished(false);
     setActiveTab("aim");
   }
 
@@ -1438,15 +1680,24 @@ export function CustomerSatisfactionPage() {
         <Exp4ExerciseTab
           responses={responses}
           selectedApp={selectedApp}
+          submittedApps={submittedApps}
           onAddResponse={handleAddResponse}
+          onMarkAppSubmitted={handleMarkAppSubmitted}
         />
       );
       case "simulation": return (
         <Exp4SimulationTab
           responses={responses}
           selectedApp={selectedApp}
+          simApp={simApp}
+          dataset={simDataset}
+          sampleCount={simSampleCount}
+          onSetSimApp={setSimApp}
+          onSetDataset={setSimDataset}
+          onSetSampleCount={setSimSampleCount}
           onSetApp={handleSetApp}
           onSetResponses={handleSetResponses}
+          onNavigate={setActiveTab}
         />
       );
       case "results": return <Exp4ResultsTab responses={responses} selectedApp={selectedApp} />;
@@ -1454,8 +1705,19 @@ export function CustomerSatisfactionPage() {
       case "comparison": return <Exp4ComparisonTab responses={responses} selectedApp={selectedApp} />;
       case "conclusion": return (
         <div className="space-y-4">
-          <Exp4ConclusionTab responses={responses} selectedApp={selectedApp} />
-          <Exp4QuizTab />
+          <Exp4ConclusionTab
+            responses={responses}
+            selectedApp={selectedApp}
+            quizAnswers={quizAnswers}
+            quizFinished={quizFinished}
+          />
+          <Exp4QuizTab
+            quizAnswers={quizAnswers}
+            quizFinished={quizFinished}
+            onQuizAnswersChange={setQuizAnswers}
+            onQuizFinish={() => setQuizFinished(true)}
+            onQuizReset={() => { setQuizAnswers(Array(10).fill(null)); setQuizFinished(false); }}
+          />
         </div>
       );
       default: return null;
