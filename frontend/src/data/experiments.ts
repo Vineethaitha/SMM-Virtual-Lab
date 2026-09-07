@@ -42,7 +42,7 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Design, administer, and analyse customer satisfaction surveys as a software quality metric for popular applications.",
     icon: "Smile",
-    implemented: false,
+    implemented: true,
   },
   {
     id: 5,
@@ -51,7 +51,7 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Comment on class size, cohesion, coupling, and response set from an object-oriented design.",
     icon: "Boxes",
-    implemented: false,
+    implemented: true,
   },
   {
     id: 6,
