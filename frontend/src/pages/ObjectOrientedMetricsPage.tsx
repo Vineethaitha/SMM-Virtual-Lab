@@ -10,13 +10,14 @@ import {
   Target, Lightbulb, BookOpen, ClipboardList, ListChecks,
   Play, BarChart3, FlaskConical, GitCompare, FileText,
   Boxes, ArrowRight, Check, X, Minus, RotateCcw, Download,
-  TrendingUp, TrendingDown, Info, Plus, Trash2, Edit2, GitBranch,
+  TrendingUp, TrendingDown, Info, Plus, Trash2, Edit2, GitBranch, Loader2,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { LabCard as Exp5Card, LabInfoBox as Exp5InfoBox } from "@/components/lab/LabCard";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
 import {
   EXP5_CLASSES, EXP5_RELATIONSHIPS, EXP5_COHESION,
@@ -86,38 +87,10 @@ const COHESION_COLOR: Record<string, string> = {
   Low: "bg-rose-100 text-rose-700",
 };
 
-// ─── Shared Card ─────────────────────────────────────────────────
-function Exp5Card({ title, icon: Icon, children, className = "" }: {
-  title?: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("rounded-xl bg-white shadow-sm border border-slate-200 overflow-hidden", className)}>
-      {title && (
-        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 bg-slate-50/70">
-          {Icon && <Icon className="h-4 w-4 text-blue-600" />}
-          <h3 className="text-sm font-semibold text-blue-700">{title}</h3>
-        </div>
-      )}
-      <div className="p-5">{children}</div>
-    </div>
-  );
-}
 
 function Exp5Badge({ label, color }: { label: string; color: string }) {
   return (
     <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", color)}>{label}</span>
-  );
-}
-
-function Exp5InfoBox({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-      <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-      <div>{children}</div>
-    </div>
   );
 }
 
@@ -907,14 +880,14 @@ function Exp5CustomDiagramBuilder({
       attributes: parseList(newAttrs),
       methods: parseList(newMethods),
     };
-    setClasses(prev => [...prev, cls]);
+    setClasses([...classes, cls]);
     setNewName(""); setNewAttrs(""); setNewMethods("");
     if (!relFrom) setRelFrom(name);
   }
 
   function deleteClass(id: string) {
-    setClasses(prev => prev.filter(c => c.id !== id));
-    setRels(prev => prev.filter(r => r.from !== id && r.to !== id));
+    setClasses(classes.filter(c => c.id !== id));
+    setRels(rels.filter(r => r.from !== id && r.to !== id));
     if (editingId === id) setEditingId(null);
   }
 
@@ -929,12 +902,12 @@ function Exp5CustomDiagramBuilder({
     e.preventDefault();
     const newNameTrimmed = editName.trim();
     if (!newNameTrimmed) return;
-    setClasses(prev => prev.map(c => c.id === editingId
+    setClasses(classes.map(c => c.id === editingId
       ? { id: newNameTrimmed, name: newNameTrimmed, attributes: parseList(editAttrs), methods: parseList(editMethods) }
       : c
     ));
     // update rels that referenced the old id
-    setRels(prev => prev.map(r => ({
+    setRels(rels.map(r => ({
       ...r,
       from: r.from === editingId ? newNameTrimmed : r.from,
       to: r.to === editingId ? newNameTrimmed : r.to,
@@ -948,11 +921,11 @@ function Exp5CustomDiagramBuilder({
     if (relFrom === relTo) { setRelError("A class cannot relate to itself."); return; }
     if (rels.some(r => r.from === relFrom && r.to === relTo)) { setRelError("This relationship already exists."); return; }
     setRelError("");
-    setRels(prev => [...prev, { from: relFrom, to: relTo, type: relType }]);
+    setRels([...rels, { from: relFrom, to: relTo, type: relType }]);
   }
 
   function deleteRel(idx: number) {
-    setRels(prev => prev.filter((_, i) => i !== idx));
+    setRels(rels.filter((_, i) => i !== idx));
   }
 
   const inputCls = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
@@ -1694,8 +1667,35 @@ function Exp5ConclusionTab() {
   const highestCoupling = metrics.reduce((a, b) => (b.outgoing > a.outgoing ? b : a));
   const highestERS = metrics.reduce((a, b) => (b.estimatedResponseSet > a.estimatedResponseSet ? b : a));
   const medLowCohesion = metrics.filter((m) => m.cohesionLevel !== "High");
+  const [names, setNames] = useState("");
+  const [regs, setRegs] = useState("");
+  const [exporting, setExporting] = useState(false);
 
-  function handlePrint() { window.print(); }
+  const conclusion =
+    "Object-oriented design metrics provide a structured approach to evaluating software quality at the class level. By analyzing size, cohesion, coupling, and response sets, developers can identify classes that may benefit from refactoring and apply appropriate design improvements such as interfaces, service abstractions, dependency injection, and separation of responsibilities.";
+
+  async function handleDownload() {
+    setExporting(true);
+    try {
+      const { downloadExp5Pdf } = await import("@/lib/reportPdf");
+      await downloadExp5Pdf({
+        names,
+        regs,
+        metrics,
+        strategies: EXP5_STRATEGIES,
+        largestClass,
+        highestCoupling,
+        highestERS,
+        medLowCohesion,
+        conclusion,
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const fieldClass =
+    "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
     <div className="space-y-4">
@@ -1716,131 +1716,31 @@ function Exp5ConclusionTab() {
       </Exp5Card>
 
       <Exp5Card title="Generate Lab Report" icon={Download}>
-        <div className="mb-4 flex justify-end">
-          <button id="exp5-print-report" type="button" onClick={handlePrint}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
-            <Download className="h-4 w-4" /> Print Report
+        <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2">
+            <label className="text-xs font-medium text-slate-700">
+              Name(s)
+              <input className={fieldClass} value={names} onChange={(e) => setNames(e.target.value)} />
+            </label>
+            <label className="text-xs font-medium text-slate-700">
+              Registration number(s)
+              <input className={fieldClass} value={regs} onChange={(e) => setRegs(e.target.value)} />
+            </label>
+          </div>
+          <button
+            id="exp5-download-report"
+            type="button"
+            onClick={() => void handleDownload()}
+            disabled={exporting}
+            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {exporting ? "Preparing…" : "Download PDF"}
           </button>
-        </div>
-
-        <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm leading-relaxed text-slate-700 space-y-5">
-          <div className="text-center border-b pb-4">
-            <h2 className="text-xl font-bold text-blue-800 uppercase tracking-wide">Object-Oriented Design Metrics Report</h2>
-            <p className="text-xs text-slate-400 mt-1">SRM Institute of Science and Technology — 21CSC403T Virtual Lab</p>
-            <p className="text-xs text-slate-400">Generated: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</p>
-          </div>
-
-          {/* 1. Class Size */}
-          <div>
-            <p className="font-bold text-slate-800 border-b pb-1 mb-2">1. Class Size Analysis</p>
-            <table className="w-full text-xs border-collapse">
-              <thead><tr className="bg-slate-50 border-b">{["Class", "Attributes", "Methods", "Total", "Size"].map(h => <th key={h} className="px-2 py-1 text-left font-semibold">{h}</th>)}</tr></thead>
-              <tbody>
-                {metrics.map(m => (
-                  <tr key={m.id} className="border-b border-slate-100">
-                    <td className="px-2 py-1 font-medium">{m.name}</td>
-                    <td className="px-2 py-1">{m.attributeCount}</td>
-                    <td className="px-2 py-1">{m.methodCount}</td>
-                    <td className="px-2 py-1 font-semibold">{m.totalMembers}</td>
-                    <td className="px-2 py-1">{m.sizeCategory}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-1 text-xs text-slate-500">Largest class: {largestClass.name} ({largestClass.totalMembers} members).</p>
-          </div>
-
-          {/* 2. Cohesion */}
-          <div>
-            <p className="font-bold text-slate-800 border-b pb-1 mb-2">2. Cohesion Analysis</p>
-            <table className="w-full text-xs border-collapse">
-              <thead><tr className="bg-slate-50 border-b">{["Class", "Cohesion", "Reason"].map(h => <th key={h} className="px-2 py-1 text-left font-semibold">{h}</th>)}</tr></thead>
-              <tbody>
-                {metrics.map(m => (
-                  <tr key={m.id} className="border-b border-slate-100">
-                    <td className="px-2 py-1 font-medium">{m.name}</td>
-                    <td className="px-2 py-1">{m.cohesionLevel}</td>
-                    <td className="px-2 py-1">{m.cohesionReason}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* 3. Coupling */}
-          <div>
-            <p className="font-bold text-slate-800 border-b pb-1 mb-2">3. Coupling Analysis</p>
-            <table className="w-full text-xs border-collapse">
-              <thead><tr className="bg-slate-50 border-b">{["Class", "Outgoing", "Incoming", "Coupling"].map(h => <th key={h} className="px-2 py-1 text-left font-semibold">{h}</th>)}</tr></thead>
-              <tbody>
-                {metrics.map(m => (
-                  <tr key={m.id} className="border-b border-slate-100">
-                    <td className="px-2 py-1 font-medium">{m.name}</td>
-                    <td className="px-2 py-1">{m.outgoing}</td>
-                    <td className="px-2 py-1">{m.incoming}</td>
-                    <td className="px-2 py-1">{m.couplingCategory}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-1 text-xs text-slate-500">Highest coupling: {highestCoupling.name} ({highestCoupling.outgoing} outgoing interactions, {highestCoupling.couplingCategory}).</p>
-          </div>
-
-          {/* 4. Response Set */}
-          <div>
-            <p className="font-bold text-slate-800 border-b pb-1 mb-2">4. Response Set Analysis</p>
-            <table className="w-full text-xs border-collapse">
-              <thead><tr className="bg-slate-50 border-b">{["Class", "Methods", "Interactions", "Est. RS", "Reason"].map(h => <th key={h} className="px-2 py-1 text-left font-semibold">{h}</th>)}</tr></thead>
-              <tbody>
-                {metrics.map(m => (
-                  <tr key={m.id} className="border-b border-slate-100">
-                    <td className="px-2 py-1 font-medium">{m.name}</td>
-                    <td className="px-2 py-1">{m.methodCount}</td>
-                    <td className="px-2 py-1">{m.outgoing}</td>
-                    <td className="px-2 py-1 font-semibold">{m.estimatedResponseSet}</td>
-                    <td className="px-2 py-1 max-w-xs">{m.responseReason}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-1 text-xs text-slate-500">Highest estimated response set: {highestERS.name} (ERS: {highestERS.estimatedResponseSet}).</p>
-          </div>
-
-          {/* 5. Decoupling */}
-          <div>
-            <p className="font-bold text-slate-800 border-b pb-1 mb-2">5. Decoupling Recommendations</p>
-            <ul className="space-y-1 text-xs text-slate-600">
-              {EXP5_STRATEGIES.map(s => (
-                <li key={s.id}>• <strong>{s.label}</strong> ({s.applicableTo.join(", ")}): {s.description}</li>
-              ))}
-            </ul>
-          </div>
-
-          {/* 6. Overall */}
-          <div>
-            <p className="font-bold text-slate-800 border-b pb-1 mb-2">6. Overall Design Analysis</p>
-            <p className="text-xs text-slate-600">
-              The class model contains {metrics.length} classes. The largest class is {largestClass.name} with{" "}
-              {largestClass.totalMembers} total members. {" "}
-              {medLowCohesion.length > 0
-                ? `${medLowCohesion.map(m => m.name).join(", ")} show${medLowCohesion.length === 1 ? "s" : ""} medium/lower cohesion.`
-                : "All classes show high cohesion."}{" "}
-              The class with the most outgoing interactions is {highestCoupling.name} ({highestCoupling.outgoing} outgoing, {highestCoupling.couplingCategory} coupling).{" "}
-              The highest estimated response set belongs to {highestERS.name} (ERS: {highestERS.estimatedResponseSet}).
-            </p>
-          </div>
-
-          {/* 7. Conclusion */}
-          <div>
-            <p className="font-bold text-slate-800 border-b pb-1 mb-2">7. Conclusion</p>
-            <p className="text-xs text-slate-600">
-              Object-oriented design metrics provide a structured approach to evaluating software quality at
-              the class level. By analyzing size, cohesion, coupling, and response sets, developers can
-              identify classes that may benefit from refactoring and apply appropriate design improvements
-              such as interfaces, service abstractions, dependency injection, and separation of
-              responsibilities.
-            </p>
-          </div>
+          <p className="text-xs text-slate-500">
+            The PDF includes class size, cohesion, coupling, response-set tables, and decoupling
+            recommendations from the current model.
+          </p>
         </div>
       </Exp5Card>
     </div>

@@ -1,16 +1,17 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import {
   Target, Lightbulb, BookOpen, ClipboardList, ListChecks,
   Play, BarChart3, FlaskConical, GitCompare, FileText,
   Smile, Plus, Trash2, Edit2, Check, X, RotateCcw,
-  ArrowRight, AlertCircle, RefreshCw, Download, TrendingUp, TrendingDown, Minus,
+  ArrowRight, RefreshCw, Download, TrendingUp, TrendingDown, Minus, Loader2,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { LabCard as Exp4Card, LabInfoBox as Exp4InfoBox } from "@/components/lab/LabCard";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
 import {
   EXP4_TABS, EXP4_APPS, EXP4_FACTORS, EXP4_FACTOR_LABELS,
@@ -30,34 +31,6 @@ function exp4_round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-// ─── Shared Card Shell ────────────────────────────────────────
-function Exp4Card({ title, icon: Icon, children, className = "" }: {
-  title: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("rounded-xl bg-white shadow-sm border border-slate-200 overflow-hidden", className)}>
-      {title && (
-        <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100 bg-slate-50/60">
-          {Icon && <Icon className="h-4 w-4 text-blue-600" />}
-          <h3 className="text-sm font-semibold text-blue-700">{title}</h3>
-        </div>
-      )}
-      <div className="p-5">{children}</div>
-    </div>
-  );
-}
-
-function Exp4InfoBox({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-      <div>{children}</div>
-    </div>
-  );
-}
 
 function Exp4KpiCard({ label, value, sub, color = "blue" }: {
   label: string; value: string | number; sub?: string; color?: string;
@@ -455,10 +428,10 @@ interface Exp4SimulationTabProps {
 }
 
 
-function Exp4SimulationTab({ responses, onSetApp, onSetResponses, onNavigate }: Exp4SimulationTabProps) {
-  const [simApp, setSimApp] = useState(EXP4_APPS[0]);
-  const [dataset, setDataset] = useState<"sample" | "custom">("sample");
-  const [sampleCount, setSampleCount] = useState<number>(20);
+function Exp4SimulationTab({
+  responses, simApp, dataset, sampleCount,
+  onSetSimApp, onSetDataset, onSetSampleCount, onSetApp, onSetResponses, onNavigate,
+}: Exp4SimulationTabProps) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<Partial<Exp4Response>>({});
 
@@ -1200,7 +1173,7 @@ function Exp4ComparisonTab({ responses, selectedApp }: { responses: Exp4Response
                       <td className="px-4 py-2 text-xs text-slate-500">
                         {row.winner === "tie"
                           ? "Both applications have the same average rating."
-                          : `${row.winner === "A" ? appA : appB} scores higher`}
+                          : `${row.winner === "A" ? selectedApp : appB} scores higher`}
                       </td>
                     </tr>
                   ))}
@@ -1404,22 +1377,59 @@ function Exp4ConclusionTab({
   quizAnswers: (number | null)[];
   quizFinished: boolean;
 }) {
-  const reportRef = useRef<HTMLDivElement>(null);
+  const [names, setNames] = useState("");
+  const [regs, setRegs] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   const overallAvg = exp4_round2(exp4_overallAverage(responses));
   const highest = exp4_highestFactor(responses);
   const lowest = exp4_lowestFactor(responses);
   const themes = exp4_analyzeThemes(responses);
 
-  function handlePrint() {
-    window.print();
-  }
-
-  const factorTableData = EXP4_FACTORS.map(f => ({
+  const factorTableData = EXP4_FACTORS.map((f) => ({
     factor: EXP4_FACTOR_LABELS[f],
     avg: exp4_round2(exp4_factorAverage(responses, f)),
     interpretation: exp4_interpretScore(exp4_factorAverage(responses, f)),
   }));
+
+  const comments = responses.length
+    ? `Based on ${responses.length} survey responses for ${selectedApp}, the overall satisfaction score of ${overallAvg.toFixed(2)} out of 5.00 indicates ${exp4_interpretScore(overallAvg).toLowerCase()}. ${highest ? `The strongest aspect is ${EXP4_FACTOR_LABELS[highest.factor]} with an average of ${exp4_round2(highest.avg).toFixed(2)}.` : ""} ${lowest ? `The primary area requiring improvement is ${EXP4_FACTOR_LABELS[lowest.factor]}, which received an average of ${exp4_round2(lowest.avg).toFixed(2)}.` : ""} ${themes.length > 0 ? `Open-ended feedback highlighted themes including ${themes.slice(0, 3).map((t) => t.theme).join(", ")}.` : "No recurring qualitative themes were identified from the open-ended responses."}`
+    : "";
+
+  const canDownload = responses.length > 0 && quizFinished;
+
+  async function handleDownload() {
+    if (!canDownload) return;
+    setExporting(true);
+    try {
+      const { downloadExp4Pdf } = await import("@/lib/reportPdf");
+      await downloadExp4Pdf({
+        names,
+        regs,
+        selectedApp,
+        responses,
+        overallAvg,
+        interpretation: exp4_interpretScore(overallAvg),
+        factors: factorTableData,
+        highest: highest
+          ? { ...highest, label: EXP4_FACTOR_LABELS[highest.factor] }
+          : null,
+        lowest: lowest ? { ...lowest, label: EXP4_FACTOR_LABELS[lowest.factor] } : null,
+        themes,
+        comments,
+        quiz: {
+          score: quizAnswers.filter((a, i) => a === EXP4_QUIZ[i].correct).length,
+          answers: quizAnswers,
+          questions: EXP4_QUIZ,
+        },
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  const fieldClass =
+    "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
     <div className="space-y-4">
@@ -1453,158 +1463,31 @@ function Exp4ConclusionTab({
             <p className="text-sm text-slate-500">The lab report can only be downloaded after finishing the quiz below.</p>
           </div>
         ) : (
-          <>
-            <div className="mb-4 flex justify-end">
-              <button
-                id="exp4-print-report"
-                type="button"
-                onClick={handlePrint}
-                className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
-              >
-                <Download className="h-4 w-4" />
-                Print Report
-              </button>
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-2">
+              <label className="text-xs font-medium text-slate-700">
+                Name(s)
+                <input className={fieldClass} value={names} onChange={(e) => setNames(e.target.value)} />
+              </label>
+              <label className="text-xs font-medium text-slate-700">
+                Registration number(s)
+                <input className={fieldClass} value={regs} onChange={(e) => setRegs(e.target.value)} />
+              </label>
             </div>
-
-            <div ref={reportRef} className="rounded-lg border border-slate-200 bg-white p-6 text-sm leading-relaxed text-slate-700 space-y-5 print:border-0">
-              <div className="text-center border-b pb-4">
-                <h2 className="text-xl font-bold text-blue-800 uppercase tracking-wide">Customer Satisfaction Metrics Report</h2>
-                <p className="text-xs text-slate-400 mt-1">SRM Institute of Science and Technology — 21CSC403T Virtual Lab</p>
-                <p className="text-xs text-slate-400">Generated: {new Date().toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" })}</p>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div><span className="font-semibold text-slate-800">Application:</span> {selectedApp}</div>
-                <div><span className="font-semibold text-slate-800">Number of Responses:</span> {responses.length}</div>
-                <div><span className="font-semibold text-slate-800">Overall Average Satisfaction:</span> {overallAvg.toFixed(2)} / 5.00</div>
-                <div><span className="font-semibold text-slate-800">Interpretation:</span> {exp4_interpretScore(overallAvg)}</div>
-              </div>
-
-              <div>
-                <p className="font-semibold text-slate-800 mb-2">Survey Questions</p>
-                <ol className="list-decimal list-inside space-y-1 text-slate-600">
-                  <li>How satisfied are you with the overall experience of the application?</li>
-                  <li>How satisfied are you with the application's ease of use?</li>
-                  <li>How satisfied are you with the application's performance?</li>
-                  <li>How satisfied are you with the application's reliability?</li>
-                  <li>How satisfied are you with the application's features?</li>
-                  <li>What improvement would you most like to see in this application? (Open-ended)</li>
-                </ol>
-              </div>
-
-              <div>
-                <p className="font-semibold text-slate-800 mb-2">Factor-wise Average Ratings</p>
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-300 bg-slate-50">
-                      <th className="px-3 py-1.5 text-left">Factor</th>
-                      <th className="px-3 py-1.5 text-center">Average</th>
-                      <th className="px-3 py-1.5 text-left">Interpretation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {factorTableData.map(row => (
-                      <tr key={row.factor} className="border-b border-slate-100">
-                        <td className="px-3 py-1.5">{row.factor}</td>
-                        <td className="px-3 py-1.5 text-center font-medium">{row.avg.toFixed(2)}</td>
-                        <td className="px-3 py-1.5 text-slate-500">{row.interpretation}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <p className="font-semibold text-slate-800">Highest-Rated Factor (Strength)</p>
-                  <p>{highest ? `${EXP4_FACTOR_LABELS[highest.factor]} (${exp4_round2(highest.avg).toFixed(2)})` : "—"}</p>
-                </div>
-                <div>
-                  <p className="font-semibold text-slate-800">Lowest-Rated Factor (Improvement Area)</p>
-                  <p>{lowest ? `${EXP4_FACTOR_LABELS[lowest.factor]} (${exp4_round2(lowest.avg).toFixed(2)})` : "—"}</p>
-                </div>
-              </div>
-
-              {themes.length > 0 && (
-                <div>
-                  <p className="font-semibold text-slate-800 mb-2">Common Feedback Themes</p>
-                  <div className="flex flex-wrap gap-2">
-                    {themes.map(t => (
-                      <span key={t.theme} className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
-                        {t.theme}: {t.mentions} mention{t.mentions !== 1 ? "s" : ""}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <p className="font-semibold text-slate-800 mb-1">Analytical Comments</p>
-                <p className="text-slate-600">
-                  Based on {responses.length} survey responses for {selectedApp}, the overall satisfaction
-                  score of {overallAvg.toFixed(2)} out of 5.00 indicates{" "}
-                  {exp4_interpretScore(overallAvg).toLowerCase()}.{" "}
-                  {highest && `The strongest aspect is ${EXP4_FACTOR_LABELS[highest.factor]} with an average of ${exp4_round2(highest.avg).toFixed(2)}.`}{" "}
-                  {lowest && `The primary area requiring improvement is ${EXP4_FACTOR_LABELS[lowest.factor]}, which received an average of ${exp4_round2(lowest.avg).toFixed(2)}.`}{" "}
-                  {themes.length > 0
-                    ? `Open-ended feedback highlighted themes including ${themes.slice(0, 3).map(t => t.theme).join(", ")}.`
-                    : "No recurring qualitative themes were identified from the open-ended responses."}
-                </p>
-              </div>
-
-              {/* Quiz Results Section */}
-              {quizFinished && (() => {
-                const quizScore = quizAnswers.filter((a, i) => a === EXP4_QUIZ[i].correct).length;
-                const quizPct = Math.round((quizScore / 10) * 100);
-                const quizPass = quizScore >= 6;
-                return (
-                  <div className="border-t pt-4">
-                    <p className="font-semibold text-slate-800 mb-3">Assessment Quiz Results</p>
-                    <div className="mb-3 flex items-center gap-4 text-sm">
-                      <span className={cn("font-bold", quizPass ? "text-emerald-600" : "text-rose-600")}>
-                        Score: {quizScore}/10 ({quizPct}%) — {quizPass ? "PASS" : "FAIL"}
-                      </span>
-                      <span className="text-slate-500">Correct: {quizScore} &nbsp;|&nbsp; Wrong: {10 - quizScore}</span>
-                    </div>
-                    <table className="w-full border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-300 bg-slate-50">
-                          <th className="px-2 py-1.5 text-left w-6">#</th>
-                          <th className="px-2 py-1.5 text-left">Question</th>
-                          <th className="px-2 py-1.5 text-left">Your Answer</th>
-                          <th className="px-2 py-1.5 text-left">Correct Answer</th>
-                          <th className="px-2 py-1.5 text-center w-14">Result</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {EXP4_QUIZ.map((qItem, qi) => {
-                          const userIdx = quizAnswers[qi];
-                          const isCorrect = userIdx === qItem.correct;
-                          return (
-                            <tr key={qItem.id} className="border-b border-slate-100">
-                              <td className="px-2 py-1.5 text-slate-400">{qi + 1}</td>
-                              <td className="px-2 py-1.5 text-slate-700">{qItem.question}</td>
-                              <td className="px-2 py-1.5 text-slate-600">
-                                {userIdx !== null ? `${String.fromCharCode(65 + userIdx)}. ${qItem.options[userIdx]}` : "—"}
-                              </td>
-                              <td className="px-2 py-1.5 text-emerald-700 font-medium">
-                                {String.fromCharCode(65 + qItem.correct)}. {qItem.options[qItem.correct]}
-                              </td>
-                              <td className="px-2 py-1.5 text-center font-bold">
-                                {isCorrect
-                                  ? <span className="text-emerald-600">✓</span>
-                                  : <span className="text-rose-500">✗</span>}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })()}
-            </div>
-          </>
+            <button
+              id="exp4-download-report"
+              type="button"
+              onClick={() => void handleDownload()}
+              disabled={exporting}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {exporting ? "Preparing…" : "Download PDF"}
+            </button>
+            <p className="text-xs text-slate-500">
+              Application: {selectedApp} · {responses.length} responses · overall {overallAvg.toFixed(2)} / 5.00
+            </p>
+          </div>
         )}
       </Exp4Card>
     </div>
