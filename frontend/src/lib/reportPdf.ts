@@ -3,7 +3,7 @@ import autoTable from "jspdf-autotable";
 import type { AnalysisResult } from "@/lib/types";
 import type { compareAnalyses } from "@/lib/compare";
 import type { Exp4Factor, Exp4QuizQuestion, Exp4Response } from "@/data/exp4Data";
-import type { Exp5ClassMetrics, Exp5Strategy } from "@/data/exp5Data";
+import type { Exp5ClassMetrics, Exp5QuizQuestion, Exp5Strategy } from "@/data/exp5Data";
 
 type Rows = ReturnType<typeof compareAnalyses>;
 
@@ -309,6 +309,10 @@ export async function downloadReportPdf(
 export interface Exp4PdfInput {
   names: string;
   regs: string;
+  title?: string;
+  origin?: string;
+  github?: string;
+  description?: string;
   selectedApp: string;
   responses: Exp4Response[];
   overallAvg: number;
@@ -329,11 +333,17 @@ export async function downloadExp4Pdf(input: Exp4PdfInput) {
   const pdf = new LabPdf();
   const date = new Date().toLocaleDateString();
   await pdf.header(
-    "Customer Satisfaction Metrics",
+    input.title || "Customer Satisfaction Metrics",
     `21CSC403T Virtual Lab - Exercise 4 Report  |  Generated ${date}`,
   );
 
-  studentBlock(pdf, { names: input.names, regs: input.regs, title: "Customer Satisfaction Metrics" });
+  studentBlock(pdf, {
+    names: input.names,
+    regs: input.regs,
+    title: input.title || "Customer Satisfaction Metrics",
+  });
+  if (input.origin) pdf.field("Origin", `${input.origin}${input.github ? ` (${input.github})` : ""}`);
+  if (input.description) pdf.field("Description", input.description);
   pdf.field("Application", input.selectedApp);
   pdf.field("Number of responses", String(input.responses.length));
   pdf.field("Overall average satisfaction", `${input.overallAvg.toFixed(2)} / 5.00`);
@@ -392,6 +402,10 @@ export async function downloadExp4Pdf(input: Exp4PdfInput) {
 export interface Exp5PdfInput {
   names: string;
   regs: string;
+  title?: string;
+  origin?: string;
+  github?: string;
+  description?: string;
   metrics: Exp5ClassMetrics[];
   strategies: Exp5Strategy[];
   largestClass: Exp5ClassMetrics;
@@ -399,17 +413,29 @@ export interface Exp5PdfInput {
   highestERS: Exp5ClassMetrics;
   medLowCohesion: Exp5ClassMetrics[];
   conclusion: string;
+  quiz?: {
+    score: number;
+    answers: (number | null)[];
+    questions: Exp5QuizQuestion[];
+  };
 }
 
 export async function downloadExp5Pdf(input: Exp5PdfInput) {
   const pdf = new LabPdf();
   const date = new Date().toLocaleDateString();
   await pdf.header(
-    "Object-Oriented Design Metrics",
+    input.title || "Object-Oriented Design Metrics",
     `21CSC403T Virtual Lab - Exercise 5 Report  |  Generated ${date}`,
   );
 
-  studentBlock(pdf, { names: input.names, regs: input.regs, title: "Object-Oriented Design Metrics" });
+  studentBlock(pdf, {
+    names: input.names,
+    regs: input.regs,
+    title: input.title || "Object-Oriented Design Metrics",
+  });
+  if (input.origin) pdf.field("Origin", `${input.origin}${input.github ? ` (${input.github})` : ""}`);
+  if (input.description) pdf.field("Description", input.description);
+  pdf.y += 6;
 
   pdf.heading("2. Class Size Analysis");
   pdf.table(
@@ -460,6 +486,27 @@ export async function downloadExp5Pdf(input: Exp5PdfInput) {
 
   pdf.heading("8. Conclusion");
   pdf.body(input.conclusion);
+
+  if (input.quiz) {
+    pdf.heading("9. Assessment Quiz Results");
+    const { score, answers, questions } = input.quiz;
+    const pct = Math.round((score / questions.length) * 100);
+    pdf.field("Score", `${score}/${questions.length} (${pct}%) - ${score >= 6 ? "PASS" : "FAIL"}`);
+    pdf.table(
+      ["#", "Question", "Your answer", "Correct", "Result"],
+      questions.map((q, i) => {
+        const userIdx = answers[i];
+        return [
+          String(i + 1),
+          ascii(q.question),
+          userIdx != null ? ascii(`${String.fromCharCode(65 + userIdx)}. ${q.options[userIdx]}`) : "-",
+          ascii(`${String.fromCharCode(65 + q.correct)}. ${q.options[q.correct]}`),
+          userIdx === q.correct ? "Pass" : "Fail",
+        ];
+      }),
+      0,
+    );
+  }
 
   pdf.footerAndSave("21csc403t-exercise5-oo-design-metrics.pdf");
 }

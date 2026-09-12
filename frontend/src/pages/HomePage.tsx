@@ -228,7 +228,7 @@ export function HomePage() {
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             Interactive labs for size, complexity, object-oriented quality, testing, and process
-            measurement — starting with a live Python metrics workbench.
+            measurement — with live workbenches for experiments 1, 4, and 5.
           </motion.p>
           <motion.div
             className="flex flex-col items-center justify-center gap-4 sm:flex-row"
@@ -257,9 +257,15 @@ export function HomePage() {
             transition={{ duration: 1, delay: 0.7 }}
           >
             {[
-              { value: "10", label: "Experiments" },
-              { value: "01", label: "Live now" },
-              { value: "09", label: "Coming soon" },
+              { value: String(EXPERIMENTS.length), label: "Experiments" },
+              {
+                value: String(EXPERIMENTS.filter((e) => e.implemented).length).padStart(2, "0"),
+                label: "Live now",
+              },
+              {
+                value: String(EXPERIMENTS.filter((e) => !e.implemented).length).padStart(2, "0"),
+                label: "Coming soon",
+              },
               { value: "Python", label: "Live language" },
             ].map((stat) => (
               <div key={stat.label} className="flex flex-col items-center gap-1">
@@ -284,8 +290,8 @@ export function HomePage() {
               Hands-on learning
             </motion.h2>
             <motion.p variants={itemVariants} className="mx-auto max-w-2xl text-muted-foreground">
-              Ten experiments mapped to the course. Experiment 1 is live; the rest open a Coming Soon page
-              until they are built.
+              Ten experiments mapped to the course. Experiments 1, 4, and 5 are live; the rest open a
+              Coming Soon page until they are built.
             </motion.p>
           </div>
 
