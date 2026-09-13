@@ -4,6 +4,12 @@ import type { AnalysisResult } from "@/lib/types";
 import type { compareAnalyses } from "@/lib/compare";
 import type { Exp4Factor, Exp4QuizQuestion, Exp4Response } from "@/data/exp4Data";
 import type { Exp5ClassMetrics, Exp5Strategy } from "@/data/exp5Data";
+import type {
+  Exp2Project,
+  Exp2Requirement,
+  Exp2TestCase,
+  Exp2QuizQuestion,
+} from "@/data/exp2Data";
 
 type Rows = ReturnType<typeof compareAnalyses>;
 
@@ -463,3 +469,84 @@ export async function downloadExp5Pdf(input: Exp5PdfInput) {
 
   pdf.footerAndSave("21csc403t-exercise5-oo-design-metrics.pdf");
 }
+
+export interface Exp2PdfInput {
+  names: string;
+  regs: string;
+  project: Exp2Project;
+  requirements: Exp2Requirement[];
+  testCases: Exp2TestCase[];
+  summary: any;
+  uncovered: Exp2Requirement[];
+  comparison?: { initial: any; current: any };
+  conclusion: string;
+  quizAnswers?: (number | null)[];
+  quizQuestions?: Exp2QuizQuestion[];
+}
+
+export async function downloadExp2Pdf(input: Exp2PdfInput) {
+  const pdf = new LabPdf();
+  const date = new Date().toLocaleDateString();
+  await pdf.header(
+    "Test Case Management (Kiwi TCMS)",
+    `21CSC403T Virtual Lab - Exercise 2 Report  |  Generated ${date}`,
+  );
+
+  studentBlock(pdf, { names: input.names, regs: input.regs, title: input.project.name });
+
+  pdf.heading("2. Project Overview");
+  pdf.field("Project Name", input.project.name);
+  pdf.body(input.project.description || "No description provided.");
+
+  pdf.heading("3. Requirement Traceability & Coverage");
+  pdf.table(
+    ["Key", "Title", "Category", "Priority", "Linked Tests"],
+    input.requirements.map((r: any) => [
+      r.req_id || r.key || r.id,
+      ascii(r.title),
+      (r.category || "functional").toUpperCase(),
+      (r.priority || "Med").toUpperCase(),
+      String(input.testCases.filter((tc: any) => (tc.linked_requirement_ids || tc.requirementIds || []).includes(r.id)).length),
+    ]),
+    1,
+  );
+  if (input.summary) {
+    pdf.body(
+      `Total Requirements: ${input.summary.total_requirements ?? (input.summary as any).totalRequirements ?? input.requirements.length}`,
+    );
+  }
+
+  pdf.heading("4. Test Execution Summary");
+  pdf.body(`Total Test Cases: ${input.testCases.length}`);
+
+  pdf.heading("5. Test Case Inventory (Sample / Active Cases)");
+  pdf.table(
+    ["Key", "Title", "Tier", "Priority", "Linked Reqs"],
+    input.testCases.slice(0, 25).map((tc: any) => [
+      tc.tc_id || tc.key || tc.id,
+      ascii(tc.title.length > 38 ? tc.title.slice(0, 38) + "..." : tc.title),
+      tc.tier || tc.type || "functional",
+      tc.priority || "Med",
+      (tc.linked_requirement_ids || tc.requirementIds || [])
+        .map((rid: string) => input.requirements.find((r: any) => r.id === rid)?.req_id ?? rid)
+        .join(", "),
+    ]),
+    1,
+  );
+
+  pdf.heading("6. Testing Gaps & Identified Action Items");
+  if (input.uncovered && input.uncovered.length > 0) {
+    pdf.body(`The following ${input.uncovered.length} requirement(s) lack passing test evidence:`);
+    input.uncovered.forEach((r: any) => {
+      pdf.bullet(r.req_id || r.key || r.id, `${r.title} (Priority: ${r.priority})`);
+    });
+  } else {
+    pdf.body("All defined requirements have at least one passing test case. No uncovered requirements remain.");
+  }
+
+  pdf.heading("7. Conclusion & Pedagogical Insights");
+  pdf.body(input.conclusion || "Test management completed successfully.");
+
+  pdf.footerAndSave("21csc403t-exercise2-test-case-management.pdf");
+}
+
