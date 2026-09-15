@@ -23,7 +23,7 @@ import { ExercisePanel } from "@/components/exercise/ExercisePanel";
 import { InsightsList, MetricsDashboard } from "@/components/metrics/Dashboard";
 import { Pipeline } from "@/components/pipeline/Pipeline";
 import { ComparisonPanel, ReportPanel } from "@/components/report/ReportPanel";
-import { LabCard, LabInfoBox, LabStepList } from "@/components/lab/LabCard";
+import { LabCard, LabFormula, LabInfoBox, LabStepList, LabThresholds } from "@/components/lab/LabCard";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
 import { NAV } from "@/content/labCopy";
 import { cn } from "@/lib/utils";
@@ -204,35 +204,106 @@ function SectionBody({
   if (section === "theory") {
     return (
       <div className="space-y-4">
-        <LabCard title="LOC family" icon={BookOpen}>
-          <p className="text-sm leading-relaxed text-slate-600">
-            Physical lines (LOC), source lines (SLOC), and logical statements (LLOC). Size alone does not
-            equal complexity.
+        <LabCard title="LOC family">
+          <p className="mb-3 text-sm leading-relaxed text-slate-600">
+            The LOC family measures size, not complexity. Physical lines, source lines, and logical
+            statements answer different questions about how large a module is.
           </p>
+          <div className="mb-3 space-y-1.5">
+            <LabFormula>LOC = physical lines in the file</LabFormula>
+            <LabFormula>SLOC = non-blank, non-comment source lines</LabFormula>
+            <LabFormula>LLOC = logical statements</LabFormula>
+          </div>
+          <LabThresholds
+            caption="Laboratory reading (size is not a quality grade):"
+            rows={[
+              { range: "LOC", label: "Physical size", color: "bg-slate-100 text-slate-700" },
+              { range: "SLOC", label: "Coded size", color: "bg-blue-100 text-blue-700" },
+              { range: "LLOC", label: "Statement size", color: "bg-indigo-100 text-indigo-700" },
+            ]}
+          />
         </LabCard>
+
         <LabCard title="McCabe cyclomatic complexity">
-          <p className="text-sm leading-relaxed text-slate-600">
-            M = E − N + 2P. Each independent path through a function needs at least one test. Radon ranks A
-            (1–5) through F (41+).
+          <p className="mb-3 text-sm leading-relaxed text-slate-600">
+            Cyclomatic complexity counts independent paths through a function. Each path needs at least
+            one test. Radon derives this from predicates in the AST, not by executing the code.
           </p>
+          <div className="mb-3 space-y-1.5">
+            <LabFormula>M = E − N + 2P</LabFormula>
+            <LabFormula>M ≈ number of decision points + 1</LabFormula>
+          </div>
+          <LabThresholds
+            caption="Laboratory thresholds (Radon ranks, simplified for this experiment):"
+            rows={[
+              { range: "1 – 5", label: "A · Simple", color: "bg-emerald-100 text-emerald-700" },
+              { range: "6 – 10", label: "B · Moderate", color: "bg-blue-100 text-blue-700" },
+              { range: "11 – 20", label: "C · Complex", color: "bg-amber-100 text-amber-700" },
+              { range: "21 – 30", label: "D · More complex", color: "bg-orange-100 text-orange-700" },
+              { range: "31 – 40", label: "E · High risk", color: "bg-rose-100 text-rose-700" },
+              { range: "41 +", label: "F · Unstable", color: "bg-red-100 text-red-700" },
+            ]}
+          />
         </LabCard>
+
         <LabCard title="Halstead metrics">
-          <p className="text-sm leading-relaxed text-slate-600">
-            Operators η1, N1 and operands η2, N2. Volume V = N log₂(η), difficulty D = (η1/2)×(N2/η2),
-            effort E = D×V. Nested predicates inflate operator counts.
+          <p className="mb-3 text-sm leading-relaxed text-slate-600">
+            Halstead metrics treat source as operators (η1, N1) and operands (η2, N2). Nested predicates
+            inflate operator counts and therefore volume, difficulty, and effort.
           </p>
+          <div className="mb-3 space-y-1.5">
+            <LabFormula>η = η1 + η2 &nbsp;&nbsp; N = N1 + N2</LabFormula>
+            <LabFormula>V = N × log₂(η)</LabFormula>
+            <LabFormula>D = (η1 / 2) × (N2 / η2)</LabFormula>
+            <LabFormula>E = D × V</LabFormula>
+          </div>
+          <LabThresholds
+            caption="Laboratory reading (what each term measures):"
+            rows={[
+              { range: "V · Volume", label: "Information content", color: "bg-slate-100 text-slate-700" },
+              { range: "D · Difficulty", label: "Error-proneness", color: "bg-blue-100 text-blue-700" },
+              { range: "E · Effort", label: "Review / implement cost", color: "bg-amber-100 text-amber-700" },
+            ]}
+          />
         </LabCard>
+
         <LabCard title="Maintainability Index">
-          <p className="text-sm leading-relaxed text-slate-600">
-            Radon blends volume, CC, SLOC, and comments onto a 0–100 scale. Higher MI is easier to
-            maintain.
+          <p className="mb-3 text-sm leading-relaxed text-slate-600">
+            Radon blends Halstead volume, cyclomatic complexity, and SLOC onto a 0–100 scale. Higher MI
+            is easier to maintain.
           </p>
+          <div className="mb-3">
+            <LabFormula>
+              MI = max(0, (171 − 5.2 ln(V) − 0.23 CC − 16.2 ln(SLOC)) × 100 / 171)
+            </LabFormula>
+          </div>
+          <LabThresholds
+            caption="Laboratory thresholds (Radon MI ranks):"
+            rows={[
+              { range: "20 – 100", label: "A · High", color: "bg-emerald-100 text-emerald-700" },
+              { range: "10 – 19", label: "B · Medium", color: "bg-amber-100 text-amber-700" },
+              { range: "0 – 9", label: "C · Low", color: "bg-rose-100 text-rose-700" },
+            ]}
+          />
         </LabCard>
+
         <LabCard title="Control-flow graph">
-          <p className="text-sm leading-relaxed text-slate-600">
-            A CFG makes McCabe visual: ENTRY, statements, decisions (true/false), loops (back-edges),
-            RETURN, EXIT.
+          <p className="mb-3 text-sm leading-relaxed text-slate-600">
+            A CFG makes McCabe visual. The token walks edges only — student Python is never executed.
           </p>
+          <div className="mb-3">
+            <LabFormula>Independent paths = E − N + 2P</LabFormula>
+          </div>
+          <LabThresholds
+            caption="Laboratory node types used in the simulation:"
+            rows={[
+              { range: "ENTRY / EXIT", label: "Start and end", color: "bg-slate-100 text-slate-700" },
+              { range: "Statement", label: "Sequential step", color: "bg-blue-100 text-blue-700" },
+              { range: "Decision (true / false)", label: "Branch", color: "bg-amber-100 text-amber-700" },
+              { range: "Loop (back-edge)", label: "Repeat body", color: "bg-indigo-100 text-indigo-700" },
+              { range: "RETURN", label: "Leave function", color: "bg-rose-100 text-rose-700" },
+            ]}
+          />
         </LabCard>
       </div>
     );
@@ -325,26 +396,7 @@ function SectionBody({
   }
 
   if (section === "results") {
-    return (
-      <div className="space-y-4">
-        <LabCard title="Results" icon={BarChart3}>
-          <p className="mb-3 text-sm text-slate-600">
-            Raw Radon metrics for the current editor buffer. These values are computed on the server, not
-            hardcoded.
-          </p>
-          <Button size="sm" onClick={() => void analyze()} disabled={analyzing}>
-            <RefreshCw className={cn("h-3.5 w-3.5", analyzing && "animate-spin")} />
-            {analysisReady ? "Analyze Again" : "Analyze Code"}
-          </Button>
-          {(analyzing || analysisReady) && (
-            <div className="mt-3">
-              <Pipeline />
-            </div>
-          )}
-        </LabCard>
-        <MetricsDashboard />
-      </div>
-    );
+    return <MetricsDashboard />;
   }
 
   if (section === "exercise") {
