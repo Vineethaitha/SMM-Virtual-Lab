@@ -4,7 +4,7 @@ import {
   Target, Lightbulb, BookOpen, ClipboardList, ListChecks,
   Play, BarChart3, FlaskConical, GitCompare, FileText,
   Smile, Plus, Trash2, Edit2, Check, X, RotateCcw,
-  ArrowRight, RefreshCw, Download, TrendingUp, TrendingDown, Minus, Loader2,
+  ArrowRight, RefreshCw, Download, TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -12,6 +12,11 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { LabCard as Exp4Card, LabInfoBox as Exp4InfoBox } from "@/components/lab/LabCard";
+import {
+  ReportDownloadBar,
+  ReportStudentFields,
+  type ReportStudentForm,
+} from "@/components/lab/ReportForm";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
 import {
   EXP4_TABS, EXP4_APPS, EXP4_FACTORS, EXP4_FACTOR_LABELS,
@@ -1377,8 +1382,14 @@ function Exp4ConclusionTab({
   quizAnswers: (number | null)[];
   quizFinished: boolean;
 }) {
-  const [names, setNames] = useState("");
-  const [regs, setRegs] = useState("");
+  const [student, setStudent] = useState<ReportStudentForm>({
+    names: "",
+    regs: "",
+    title: "Customer Satisfaction Metrics",
+    origin: "survey",
+    github: "",
+    description: "Customer satisfaction survey analysed in 21CSC403T Virtual Lab Exercise 4.",
+  });
   const [exporting, setExporting] = useState(false);
 
   const overallAvg = exp4_round2(exp4_overallAverage(responses));
@@ -1404,8 +1415,12 @@ function Exp4ConclusionTab({
     try {
       const { downloadExp4Pdf } = await import("@/lib/reportPdf");
       await downloadExp4Pdf({
-        names,
-        regs,
+        names: student.names,
+        regs: student.regs,
+        title: student.title,
+        origin: student.origin,
+        github: student.github,
+        description: student.description,
         selectedApp,
         responses,
         overallAvg,
@@ -1428,8 +1443,11 @@ function Exp4ConclusionTab({
     }
   }
 
-  const fieldClass =
-    "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+  const downloadHint = !responses.length
+    ? "Submit or load survey responses in Exercise or Simulation first, then complete the assessment quiz."
+    : !quizFinished
+      ? "Complete the Assessment Quiz above before downloading the PDF."
+      : `Application: ${selectedApp} · ${responses.length} responses · overall ${overallAvg.toFixed(2)} / 5.00`;
 
   return (
     <div className="space-y-4">
@@ -1449,47 +1467,46 @@ function Exp4ConclusionTab({
       </Exp4Card>
 
       <Exp4Card title="Generate Lab Report" icon={Download}>
-        {!responses.length ? (
-          <div className="flex flex-col items-center gap-3 py-8 text-center text-slate-400">
-            <FileText className="h-8 w-8 opacity-40" />
-            <p className="text-sm">Load responses to generate the report.</p>
-          </div>
-        ) : !quizFinished ? (
-          <div className="flex flex-col items-center gap-3 py-8 text-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100">
-              <ListChecks className="h-7 w-7 text-amber-500" />
-            </div>
-            <p className="font-semibold text-slate-700">Complete the Assessment Quiz first</p>
-            <p className="text-sm text-slate-500">The lab report can only be downloaded after finishing the quiz below.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2">
-              <label className="text-xs font-medium text-slate-700">
-                Name(s)
-                <input className={fieldClass} value={names} onChange={(e) => setNames(e.target.value)} />
-              </label>
-              <label className="text-xs font-medium text-slate-700">
-                Registration number(s)
-                <input className={fieldClass} value={regs} onChange={(e) => setRegs(e.target.value)} />
-              </label>
-            </div>
-            <button
-              id="exp4-download-report"
-              type="button"
-              onClick={() => void handleDownload()}
-              disabled={exporting}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-            >
-              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              {exporting ? "Preparing…" : "Download PDF"}
-            </button>
-            <p className="text-xs text-slate-500">
-              Application: {selectedApp} · {responses.length} responses · overall {overallAvg.toFixed(2)} / 5.00
-            </p>
-          </div>
-        )}
+        <ReportDownloadBar
+          buttonId="exp4-download-report"
+          disabled={!canDownload}
+          exporting={exporting}
+          onDownload={() => void handleDownload()}
+          hint={downloadHint}
+        />
+        <ReportStudentFields
+          form={student}
+          onChange={(key, value) => setStudent((f) => ({ ...f, [key]: value }))}
+          originOptions={[
+            { value: "survey", label: "Classroom / own survey" },
+            { value: "sample", label: "Lab sample dataset" },
+            { value: "github", label: "GitHub project" },
+          ]}
+          footnote={`Application under study: ${selectedApp}. Exercise 4.`}
+        />
       </Exp4Card>
+
+      {responses.length > 0 && (
+        <Exp4Card title="Section 2 — Survey Results">
+          <ul className="space-y-1 font-mono text-xs text-slate-700">
+            <li>Responses {responses.length}</li>
+            <li>
+              Overall {overallAvg.toFixed(2)} / 5.00 ({exp4_interpretScore(overallAvg)})
+            </li>
+            {factorTableData.map((row) => (
+              <li key={row.factor}>
+                {row.factor}: {row.avg.toFixed(2)} ({row.interpretation})
+              </li>
+            ))}
+          </ul>
+        </Exp4Card>
+      )}
+
+      {responses.length > 0 && (
+        <Exp4Card title="Section 3 — Analysis">
+          <p className="text-sm leading-relaxed text-slate-600">{comments}</p>
+        </Exp4Card>
+      )}
     </div>
   );
 }
@@ -1588,18 +1605,18 @@ export function CustomerSatisfactionPage() {
       case "comparison": return <Exp4ComparisonTab responses={responses} selectedApp={selectedApp} />;
       case "conclusion": return (
         <div className="space-y-4">
-          <Exp4ConclusionTab
-            responses={responses}
-            selectedApp={selectedApp}
-            quizAnswers={quizAnswers}
-            quizFinished={quizFinished}
-          />
           <Exp4QuizTab
             quizAnswers={quizAnswers}
             quizFinished={quizFinished}
             onQuizAnswersChange={setQuizAnswers}
             onQuizFinish={() => setQuizFinished(true)}
             onQuizReset={() => { setQuizAnswers(Array(10).fill(null)); setQuizFinished(false); }}
+          />
+          <Exp4ConclusionTab
+            responses={responses}
+            selectedApp={selectedApp}
+            quizAnswers={quizAnswers}
+            quizFinished={quizFinished}
           />
         </div>
       );

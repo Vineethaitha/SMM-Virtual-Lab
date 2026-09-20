@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
 import { compareAnalyses } from "@/lib/compare";
 import { formatNum } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/card";
 import { LabCard } from "@/components/lab/LabCard";
+import {
+  REPORT_FIELD_CLASS,
+  ReportDownloadBar,
+  ReportStudentFields,
+  type ReportStudentForm,
+} from "@/components/lab/ReportForm";
 import { useLab } from "@/state/LabContext";
 
 export function ComparisonPanel() {
@@ -66,23 +71,25 @@ export function ComparisonPanel() {
 
 export function ReportPanel() {
   const { analysis, baseline } = useLab();
-  const [form, setForm] = useState({
+  const [student, setStudent] = useState<ReportStudentForm>({
     names: "",
     regs: "",
     title: "Software Code Metrics Analysis",
     origin: "sample",
     github: "",
     description: "Python module analyzed in 21CSC403T Virtual Lab Exercise 1.",
-    justification:
-      "Radon is used because the lab is Python-only. It exposes LOC, cyclomatic complexity, Halstead, and MI from AST visitors without executing source.",
-    refactor: "",
-    conclusion:
-      "Static metrics make complexity visible, guide refactoring, and provide evidence of improvement when before/after values move in the right direction.",
   });
+  const [justification, setJustification] = useState(
+    "Radon is used because the lab is Python-only. It exposes LOC, cyclomatic complexity, Halstead, and MI from AST visitors without executing source.",
+  );
+  const [refactor, setRefactor] = useState("");
+  const [conclusion, setConclusion] = useState(
+    "Static metrics make complexity visible, guide refactoring, and provide evidence of improvement when before/after values move in the right direction.",
+  );
 
   const [exporting, setExporting] = useState(false);
-  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
   const rows = analysis && baseline ? compareAnalyses(baseline, analysis) : [];
+  const form = { ...student, justification, refactor, conclusion };
 
   const exportPdf = async () => {
     if (!analysis) return;
@@ -95,81 +102,39 @@ export function ReportPanel() {
     }
   };
 
-  const fieldClass =
-    "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
-
   return (
     <div className="space-y-4" id="lab-report">
       <LabCard title="Generate Lab Report" icon={Download}>
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <Button size="sm" onClick={() => void exportPdf()} disabled={!analysis || exporting}>
-            {exporting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            {exporting ? "Preparing…" : "Download PDF"}
-          </Button>
-          {!analysis && (
-            <p className="text-xs text-slate-500">
-              Run <span className="font-medium text-slate-800">Analyze Code</span> in Simulation first — the
-              PDF embeds your live Radon metrics.
-            </p>
-          )}
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2">
-          <Field label="Name(s)" value={form.names} onChange={(v) => set("names", v)} className={fieldClass} />
-          <Field
-            label="Registration number(s)"
-            value={form.regs}
-            onChange={(v) => set("regs", v)}
-            className={fieldClass}
-          />
-          <Field
-            label="Project title"
-            value={form.title}
-            onChange={(v) => set("title", v)}
-            className={fieldClass}
-          />
-          <label className="text-xs font-medium text-slate-700">
-            Origin
-            <select
-              className={fieldClass}
-              value={form.origin}
-              onChange={(e) => set("origin", e.target.value)}
-            >
-              <option value="sample">Lab sample / own snippet</option>
-              <option value="own">Own project</option>
-              <option value="github">GitHub project</option>
-            </select>
-          </label>
-          <Field
-            label="GitHub link (if any)"
-            value={form.github}
-            onChange={(v) => set("github", v)}
-            className={fieldClass}
-          />
-          <label className="text-xs font-medium text-slate-700 md:col-span-2">
-            Short description
-            <textarea
-              className={fieldClass}
-              rows={2}
-              value={form.description}
-              onChange={(e) => set("description", e.target.value)}
-            />
-          </label>
-          <p className="text-xs text-slate-500 md:col-span-2">Programming language: Python (Exercise 1).</p>
-        </div>
+        <ReportDownloadBar
+          buttonId="exp1-download-report"
+          disabled={!analysis}
+          exporting={exporting}
+          onDownload={() => void exportPdf()}
+          hint={
+            !analysis
+              ? "Run Analyze Code in Simulation first — the PDF embeds your live Radon metrics."
+              : undefined
+          }
+        />
+        <ReportStudentFields
+          form={student}
+          onChange={(key, value) => setStudent((f) => ({ ...f, [key]: value }))}
+          originOptions={[
+            { value: "sample", label: "Lab sample / own snippet" },
+            { value: "own", label: "Own project" },
+            { value: "github", label: "GitHub project" },
+          ]}
+          footnote="Programming language: Python (Exercise 1)."
+        />
       </LabCard>
 
       <LabCard title="Section 2 — Tool & Metrics">
         <p className="text-sm text-slate-600">Tool: Radon (RadonEngine). Lizard is reserved for a later exercise.</p>
         <textarea
-          className={`mt-2 ${fieldClass}`}
+          className={`mt-2 ${REPORT_FIELD_CLASS}`}
           rows={3}
-          value={form.justification}
-          onChange={(e) => set("justification", e.target.value)}
+          value={justification}
+          onChange={(e) => setJustification(e.target.value)}
         />
       </LabCard>
 
@@ -209,11 +174,11 @@ export function ReportPanel() {
 
       <LabCard title="Section 5 — Code Improvement">
         <textarea
-          className={fieldClass}
+          className={REPORT_FIELD_CLASS}
           rows={4}
           placeholder="Describe the refactor (guard clauses, extracted helpers, simplified elif chains)…"
-          value={form.refactor}
-          onChange={(e) => set("refactor", e.target.value)}
+          value={refactor}
+          onChange={(e) => setRefactor(e.target.value)}
         />
         {rows.length > 0 && (
           <table className="mt-3 w-full text-left text-xs">
@@ -241,31 +206,12 @@ export function ReportPanel() {
 
       <LabCard title="Section 6 — Inference & Conclusion">
         <textarea
-          className={fieldClass}
+          className={REPORT_FIELD_CLASS}
           rows={4}
-          value={form.conclusion}
-          onChange={(e) => set("conclusion", e.target.value)}
+          value={conclusion}
+          onChange={(e) => setConclusion(e.target.value)}
         />
       </LabCard>
     </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  className,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  className: string;
-}) {
-  return (
-    <label className="text-xs font-medium text-slate-700">
-      {label}
-      <input className={className} value={value} onChange={(e) => onChange(e.target.value)} />
-    </label>
   );
 }

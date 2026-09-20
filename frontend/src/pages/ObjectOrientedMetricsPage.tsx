@@ -10,7 +10,7 @@ import {
   Target, Lightbulb, BookOpen, ClipboardList, ListChecks,
   Play, BarChart3, FlaskConical, GitCompare, FileText,
   Boxes, ArrowRight, Check, X, Minus, RotateCcw, Download,
-  TrendingUp, TrendingDown, Info, Plus, Trash2, Edit2, GitBranch, Loader2,
+  TrendingUp, TrendingDown, Info, Plus, Trash2, Edit2, GitBranch,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -18,6 +18,11 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { LabCard as Exp5Card, LabInfoBox as Exp5InfoBox } from "@/components/lab/LabCard";
+import {
+  ReportDownloadBar,
+  ReportStudentFields,
+  type ReportStudentForm,
+} from "@/components/lab/ReportForm";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
 import {
   EXP5_CLASSES, EXP5_RELATIONSHIPS, EXP5_COHESION,
@@ -1517,13 +1522,27 @@ function Exp5ComparisonTab() {
 }
 
 // ─── Quiz Tab ─────────────────────────────────────────────────────
-function Exp5QuizTab() {
+interface Exp5QuizTabProps {
+  quizAnswers: (number | null)[];
+  quizFinished: boolean;
+  onQuizAnswersChange: (a: (number | null)[]) => void;
+  onQuizFinish: () => void;
+  onQuizReset: () => void;
+}
+
+function Exp5QuizTab({
+  quizAnswers,
+  quizFinished,
+  onQuizAnswersChange,
+  onQuizFinish,
+  onQuizReset,
+}: Exp5QuizTabProps) {
   const [current, setCurrent] = useState(0);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [answered, setAnswered] = useState(false);
-  const [answers, setAnswers] = useState<(number | null)[]>(Array(10).fill(null));
-  const [finished, setFinished] = useState(false);
+  const [selected, setSelected] = useState<number | null>(quizAnswers[0] ?? null);
+  const [answered, setAnswered] = useState(quizAnswers[0] !== null);
   const [reviewing, setReviewing] = useState(false);
+  const answers = quizAnswers;
+  const finished = quizFinished;
 
   const q = EXP5_QUIZ[current]!;
   const score = answers.filter((a, i) => a === EXP5_QUIZ[i]!.correct).length;
@@ -1532,7 +1551,9 @@ function Exp5QuizTab() {
     if (answered) return;
     setSelected(idx);
     setAnswered(true);
-    const upd = [...answers]; upd[current] = idx; setAnswers(upd);
+    const upd = [...answers];
+    upd[current] = idx;
+    onQuizAnswersChange(upd);
   }
 
   function handleNext() {
@@ -1542,13 +1563,16 @@ function Exp5QuizTab() {
       setSelected(answers[next] ?? null);
       setAnswered(answers[next] !== null);
     } else {
-      setFinished(true);
+      onQuizFinish();
     }
   }
 
   function handleRetry() {
-    setCurrent(0); setSelected(null); setAnswered(false);
-    setAnswers(Array(10).fill(null)); setFinished(false); setReviewing(false);
+    setCurrent(0);
+    setSelected(null);
+    setAnswered(false);
+    setReviewing(false);
+    onQuizReset();
   }
 
   if (finished && !reviewing) {
@@ -1661,26 +1685,45 @@ function Exp5QuizTab() {
 }
 
 // ─── Conclusion + Report Tab ──────────────────────────────────────
-function Exp5ConclusionTab() {
+function Exp5ConclusionTab({
+  quizAnswers,
+  quizFinished,
+}: {
+  quizAnswers: (number | null)[];
+  quizFinished: boolean;
+}) {
   const metrics = EXP5_METRICS;
   const largestClass = metrics.reduce((a, b) => (b.totalMembers > a.totalMembers ? b : a));
   const highestCoupling = metrics.reduce((a, b) => (b.outgoing > a.outgoing ? b : a));
   const highestERS = metrics.reduce((a, b) => (b.estimatedResponseSet > a.estimatedResponseSet ? b : a));
   const medLowCohesion = metrics.filter((m) => m.cohesionLevel !== "High");
-  const [names, setNames] = useState("");
-  const [regs, setRegs] = useState("");
+  const [student, setStudent] = useState<ReportStudentForm>({
+    names: "",
+    regs: "",
+    title: "Object-Oriented Design Metrics",
+    origin: "sample",
+    github: "",
+    description: "Class model analysed in 21CSC403T Virtual Lab Exercise 5.",
+  });
   const [exporting, setExporting] = useState(false);
 
   const conclusion =
     "Object-oriented design metrics provide a structured approach to evaluating software quality at the class level. By analyzing size, cohesion, coupling, and response sets, developers can identify classes that may benefit from refactoring and apply appropriate design improvements such as interfaces, service abstractions, dependency injection, and separation of responsibilities.";
 
+  const canDownload = quizFinished;
+
   async function handleDownload() {
+    if (!canDownload) return;
     setExporting(true);
     try {
       const { downloadExp5Pdf } = await import("@/lib/reportPdf");
       await downloadExp5Pdf({
-        names,
-        regs,
+        names: student.names,
+        regs: student.regs,
+        title: student.title,
+        origin: student.origin,
+        github: student.github,
+        description: student.description,
         metrics,
         strategies: EXP5_STRATEGIES,
         largestClass,
@@ -1688,14 +1731,16 @@ function Exp5ConclusionTab() {
         highestERS,
         medLowCohesion,
         conclusion,
+        quiz: {
+          score: quizAnswers.filter((a, i) => a === EXP5_QUIZ[i]!.correct).length,
+          answers: quizAnswers,
+          questions: EXP5_QUIZ,
+        },
       });
     } finally {
       setExporting(false);
     }
   }
-
-  const fieldClass =
-    "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
 
   return (
     <div className="space-y-4">
@@ -1716,32 +1761,27 @@ function Exp5ConclusionTab() {
       </Exp5Card>
 
       <Exp5Card title="Generate Lab Report" icon={Download}>
-        <div className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            <label className="text-xs font-medium text-slate-700">
-              Name(s)
-              <input className={fieldClass} value={names} onChange={(e) => setNames(e.target.value)} />
-            </label>
-            <label className="text-xs font-medium text-slate-700">
-              Registration number(s)
-              <input className={fieldClass} value={regs} onChange={(e) => setRegs(e.target.value)} />
-            </label>
-          </div>
-          <button
-            id="exp5-download-report"
-            type="button"
-            onClick={() => void handleDownload()}
-            disabled={exporting}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
-          >
-            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            {exporting ? "Preparing…" : "Download PDF"}
-          </button>
-          <p className="text-xs text-slate-500">
-            The PDF includes class size, cohesion, coupling, response-set tables, and decoupling
-            recommendations from the current model.
-          </p>
-        </div>
+        <ReportDownloadBar
+          buttonId="exp5-download-report"
+          disabled={!canDownload}
+          exporting={exporting}
+          onDownload={() => void handleDownload()}
+          hint={
+            !quizFinished
+              ? "Complete the Assessment Quiz above before downloading the PDF."
+              : "The PDF includes class size, cohesion, coupling, response-set tables, and decoupling recommendations from the current model."
+          }
+        />
+        <ReportStudentFields
+          form={student}
+          onChange={(key, value) => setStudent((f) => ({ ...f, [key]: value }))}
+          originOptions={[
+            { value: "sample", label: "Lab sample / own snippet" },
+            { value: "own", label: "Own project" },
+            { value: "github", label: "GitHub project" },
+          ]}
+          footnote="Object-oriented class model (Exercise 5)."
+        />
       </Exp5Card>
     </div>
   );
@@ -1773,6 +1813,8 @@ export function ObjectOrientedMetricsPage() {
   const [simMode, setSimMode] = useState<"prebuilt" | "custom">("prebuilt");
   const [customClasses, setCustomClasses] = useState<Exp5ClassDef[]>([]);
   const [customRels, setCustomRels] = useState<Exp5Relationship[]>([]);
+  const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>(Array(10).fill(null));
+  const [quizFinished, setQuizFinished] = useState(false);
 
   const handleSelectClass = useCallback((id: string | null) => {
     setSelectedClassId(id);
@@ -1783,6 +1825,8 @@ export function ObjectOrientedMetricsPage() {
     setSimMode("prebuilt");
     setCustomClasses([]);
     setCustomRels([]);
+    setQuizAnswers(Array(10).fill(null));
+    setQuizFinished(false);
     setActiveTab("aim");
   }
 
@@ -1811,8 +1855,17 @@ export function ObjectOrientedMetricsPage() {
       case "conclusion":
         return (
           <div className="space-y-6">
-            <Exp5ConclusionTab />
-            <Exp5QuizTab />
+            <Exp5QuizTab
+              quizAnswers={quizAnswers}
+              quizFinished={quizFinished}
+              onQuizAnswersChange={setQuizAnswers}
+              onQuizFinish={() => setQuizFinished(true)}
+              onQuizReset={() => {
+                setQuizAnswers(Array(10).fill(null));
+                setQuizFinished(false);
+              }}
+            />
+            <Exp5ConclusionTab quizAnswers={quizAnswers} quizFinished={quizFinished} />
           </div>
         );
       default: return null;
