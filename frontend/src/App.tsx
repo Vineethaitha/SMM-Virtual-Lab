@@ -5,6 +5,10 @@ import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { HomePage } from "@/pages/HomePage";
 import { Exp6Shell } from "@/pages/Exp6Shell";
 import { Exp7Shell } from "@/pages/Exp7Shell";
+import { CustomerSatisfactionPage } from "@/pages/CustomerSatisfactionPage";
+import { ObjectOrientedMetricsPage } from "@/pages/ObjectOrientedMetricsPage";
+import { TestCaseManagementPage } from "@/pages/TestCaseManagementPage";
+import { SoftwareSizeEstimationPage } from "@/pages/SoftwareSizeEstimationPage";
 import { getExperiment } from "@/data/experiments";
 
 function LabRoute() {
@@ -25,6 +29,18 @@ function ExperimentGate() {
   if (numId === 6) return <Exp6Shell />;
   if (numId === 7) return <Exp7Shell />;
   // Experiment 1 (and any future experiments using the same shell)
+  const expId = Number(id);
+  const exp = getExperiment(expId);
+  if (!exp) return <Navigate to="/" replace />;
+  if (!exp.implemented) return <ComingSoonPage />;
+  // Experiment 2 has its own dedicated page
+  if (expId === 2) return <TestCaseManagementPage />;
+  // Experiment 3 has its own dedicated page
+  if (expId === 3) return <SoftwareSizeEstimationPage />;
+  // Experiment 4 has its own dedicated page
+  if (expId === 4) return <CustomerSatisfactionPage />;
+  // Experiment 5 has its own dedicated page
+  if (expId === 5) return <ObjectOrientedMetricsPage />;
   return <LabRoute />;
 }
 

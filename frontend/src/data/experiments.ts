@@ -24,16 +24,16 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Create requirements, write test cases, execute them, and measure coverage gaps in a test-management workflow.",
     icon: "ClipboardCheck",
-    implemented: false,
+    implemented: true,
   },
   {
     id: 3,
     slug: "size-estimation",
     title: "Software Size Estimation",
     description:
-      "Estimate software size using function points and related sizing techniques, then relate estimates to measured code size.",
+      "Estimate software size using Function Point Analysis (FPA) & COCOMO Basic models, then relate estimates to measured KLOC.",
     icon: "Ruler",
-    implemented: false,
+    implemented: true,
   },
   {
     id: 4,
@@ -42,7 +42,7 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Design, administer, and analyse customer satisfaction surveys as a software quality metric for popular applications.",
     icon: "Smile",
-    implemented: false,
+    implemented: true,
   },
   {
     id: 5,
@@ -51,7 +51,7 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Comment on class size, cohesion, coupling, and response set from an object-oriented design.",
     icon: "Boxes",
-    implemented: false,
+    implemented: true,
   },
   {
     id: 6,

@@ -34,7 +34,7 @@ export function ComingSoonPage() {
               <h2 className="text-xl font-semibold">Coming soon</h2>
               <p className="text-sm text-muted-foreground">
                 {exp?.description ?? "This experiment is not available yet."} This lab will be added in a
-                later version. Experiment 1 (Software Code Metrics Analysis) is available now.
+                later version. Experiments 1, 4, and 5 are available now.
               </p>
               <div className="flex gap-2">
                 <Link to="/">
