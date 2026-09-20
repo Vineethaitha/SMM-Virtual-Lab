@@ -4,12 +4,13 @@ import {
   Layers, Play, CheckCircle2, XCircle,
   Award, Plus, Trash2,
   Download, Check, Ban, FolderPlus, ExternalLink,
-  FileText, CheckSquare, ShieldCheck, UserCheck
+  FileText, CheckSquare, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { LabCard, LabInfoBox, LabStepList } from "@/components/lab/LabCard";
-import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
+import { LabCard, LabFormula, LabInfoBox, LabStepList } from "@/components/lab/LabCard";
+import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
+import { ReportDownloadBar, ReportStudentFields, type ReportStudentForm } from "@/components/lab/ReportForm";
 import {
   EXP2_TABS,
   EXP2_QUIZ_BANK,
@@ -35,6 +36,11 @@ const EXP2_TAB_ICONS: Record<Exp2Tab, React.ComponentType<{ className?: string }
   simulation: Play,
   conclusion: Award,
 };
+
+const EXP2_SECTIONS: LabPageSection<Exp2Tab>[] = EXP2_TABS.map((tab) => ({
+  ...tab,
+  icon: EXP2_TAB_ICONS[tab.id],
+}));
 
 function Exp2Badge({ status, size = "md" }: { status: string; size?: "sm" | "md" }) {
   const styles: Record<string, string> = {
@@ -201,7 +207,19 @@ function Exp2TheoryTab() {
         </div>
       </LabCard>
 
-      <LabCard title="3. Tool Familiarization (Kiwi TCMS vs This Lab)" icon={ExternalLink}>
+      <LabCard title="3. Coverage and maturity formulas">
+        <p className="mb-3 text-sm leading-relaxed text-slate-600">
+          Every score in this lab is computed from your authored requirements, test cases, and run
+          results. No code is executed and no LLM is used.
+        </p>
+        <div className="mb-3 space-y-1.5">
+          <LabFormula>Requirement Coverage % = (linked requirements / total requirements) × 100</LabFormula>
+          <LabFormula>Pass Rate % = (passed tests / executed tests) × 100</LabFormula>
+          <LabFormula>Maturity Score = completeness + traceability + coverage + diversity + execution</LabFormula>
+        </div>
+      </LabCard>
+
+      <LabCard title="4. Tool Familiarization (Kiwi TCMS vs This Lab)" icon={ExternalLink}>
         <div className="space-y-4 text-sm text-slate-600">
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             <table className="w-full text-left text-xs">
@@ -282,7 +300,7 @@ export function TestCaseManagementPage() {
   const [activeProjectId, setActiveProjectId] = useState<string>("");
 
   // Storage maps per project_id
-  const [_studentInfoMap, setStudentInfoMap] = useState<Record<string, Exp2StudentInfo>>({});
+  const [_studentInfoMap, _setStudentInfoMap] = useState<Record<string, Exp2StudentInfo>>({});
   const [requirementsMap, setRequirementsMap] = useState<Record<string, Exp2Requirement[]>>({});
   const [testCasesMap, setTestCasesMap] = useState<Record<string, Exp2TestCase[]>>({});
   const [_testPlansMap, setTestPlansMap] = useState<Record<string, Exp2TestPlan[]>>({});
@@ -302,6 +320,15 @@ export function TestCaseManagementPage() {
 
   const [studentNameInput, setStudentNameInput] = useState("");
   const [studentRegInput, setStudentRegInput] = useState("");
+  const [reportStudent, setReportStudent] = useState<ReportStudentForm>({
+    names: "",
+    regs: "",
+    title: "Test Case Management (Kiwi TCMS)",
+    origin: "own",
+    github: "",
+    description: "Test-management workflow practised in 21CSC403T Virtual Lab Exercise 2.",
+  });
+  const [exporting, setExporting] = useState(false);
 
   const [newReqId, setNewReqId] = useState("");
   const [newReqTitle, setNewReqTitle] = useState("");
@@ -493,16 +520,6 @@ export function TestCaseManagementPage() {
     alert("Test run recorded into project database!");
   };
 
-  const handleSaveStudentInfo = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeProjectId) return;
-    setStudentInfoMap(prev => ({
-      ...prev,
-      [activeProjectId]: { name: studentNameInput, registration_number: studentRegInput }
-    }));
-    alert("Student details saved! Report is ready for generation.");
-  };
-
   // Quiz score calculation
   const quizScore = useMemo(() => {
     let score = 0;
@@ -513,64 +530,27 @@ export function TestCaseManagementPage() {
   }, [quizAnswers]);
 
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden font-sans text-slate-800">
-      {/* Sidebar */}
-      <ExperimentSidebar />
-
-      {/* Main Workspace */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/95 px-6 py-3.5 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white shadow-sm">
-              <ClipboardCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-slate-900 leading-tight">
-                Experiment 2: Test Case Management (Kiwi TCMS)
-              </h1>
-              <p className="text-xs text-slate-500">
-                Active Project: {activeProject ? <span className="font-semibold text-blue-600">{activeProject.name}</span> : <span className="text-rose-600 italic">None selected</span>}
-              </p>
-            </div>
-          </div>
-
-          <Button
-            size="sm"
-            onClick={() => { setActiveTab("simulation"); setSimulationSubTab("projects"); setIsCreateProjOpen(true); }}
-            className="h-8 gap-1.5 bg-blue-600 text-xs text-white hover:bg-blue-700"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Create New Project
-          </Button>
-        </header>
-
-        {/* 10-Tab Horizontal Navigation Bar */}
-        <nav className="sticky top-[61px] z-20 border-b border-slate-200 bg-white/90 shadow-sm backdrop-blur">
-          <div className="flex gap-1.5 overflow-x-auto px-6 py-2.5">
-            {EXP2_TABS.map((item) => {
-              const Icon = EXP2_TAB_ICONS[item.id];
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => setActiveTab(item.id)}
-                  className={cn(
-                    "flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all",
-                    isActive
-                      ? "bg-blue-600 text-white shadow-md"
-                      : "bg-slate-100 text-slate-600 hover:bg-blue-50 hover:text-blue-600",
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-
-        <main className="flex-1 p-6 max-w-7xl w-full mx-auto space-y-6">
+    <>
+    <LabPageShell
+      experimentNumber={2}
+      title="Test Case Management (Kiwi TCMS)"
+      subtitle="Author requirements, write test cases, execute a run, and measure coverage gaps in a test-management workflow."
+      sections={EXP2_SECTIONS}
+      activeSection={activeTab}
+      onSectionChange={setActiveTab}
+      badgeIcon={ClipboardCheck}
+      headerAction={
+        <Button
+          size="sm"
+          onClick={() => { setActiveTab("simulation"); setSimulationSubTab("projects"); setIsCreateProjOpen(true); }}
+          className="h-8 gap-1.5 bg-white/15 text-xs text-white hover:bg-white/25"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Create New Project
+        </Button>
+      }
+    >
+        <div className="space-y-6">
           {activeTab === "aim" && <Exp2AimTab />}
           {activeTab === "objective" && <Exp2ObjectiveTab />}
           {activeTab === "theory" && <Exp2TheoryTab />}
@@ -1096,42 +1076,57 @@ export function TestCaseManagementPage() {
           {/* CONCLUSION TAB */}
           {activeTab === "conclusion" && (
             <div className="space-y-6">
-              <LabCard title="Student Information Form" icon={UserCheck}>
-                <form onSubmit={handleSaveStudentInfo} className="grid gap-4 sm:grid-cols-2 text-xs">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Student Name</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. John Doe"
-                      value={studentNameInput}
-                      onChange={e => setStudentNameInput(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 p-2 text-slate-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Registration Number</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. RA2111003010001"
-                      value={studentRegInput}
-                      onChange={e => setStudentRegInput(e.target.value)}
-                      className="w-full rounded-lg border border-slate-200 p-2 text-slate-900 font-mono"
-                    />
-                  </div>
-                  <div className="sm:col-span-2 flex justify-end">
-                    <Button type="submit" className="bg-blue-600 text-white text-xs">Save Student Info</Button>
-                  </div>
-                </form>
+              <LabCard title="Generate Lab Report" icon={Download}>
+                <ReportDownloadBar
+                  disabled={!quizSubmitted || !activeProject}
+                  exporting={exporting}
+                  onDownload={() => {
+                    void (async () => {
+                      if (!activeProject) return;
+                      setExporting(true);
+                      try {
+                        const { downloadExp2Pdf } = await import("@/lib/reportPdf");
+                        await downloadExp2Pdf({
+                          names: reportStudent.names,
+                          regs: reportStudent.regs,
+                          project: activeProject,
+                          requirements: currentReqs,
+                          testCases: currentTcs,
+                          summary: currentMetrics,
+                          uncovered: currentReqs.filter(
+                            (r) => !currentTcs.some((tc) => tc.linked_requirement_ids.includes(r.id)),
+                          ),
+                          conclusion:
+                            "Requirement traceability, test-case authoring, and execution completeness were measured from the student-authored suite.",
+                        });
+                      } finally {
+                        setExporting(false);
+                      }
+                    })();
+                  }}
+                  hint={
+                    !activeProject
+                      ? "Create a project in Simulation first."
+                      : !quizSubmitted
+                        ? "Complete the Assessment Quiz in Exercise before downloading the PDF."
+                        : `Project: ${activeProject.name} · maturity ${currentMetrics.maturity_score}/100`
+                  }
+                />
+                <ReportStudentFields
+                  form={{ ...reportStudent, names: reportStudent.names || studentNameInput, regs: reportStudent.regs || studentRegInput }}
+                  onChange={(key, value) => {
+                    setReportStudent((f) => ({ ...f, [key]: value }));
+                    if (key === "names") setStudentNameInput(value);
+                    if (key === "regs") setStudentRegInput(value);
+                  }}
+                  originOptions={[
+                    { value: "own", label: "Own project" },
+                    { value: "sample", label: "Lab sample" },
+                    { value: "github", label: "GitHub project" },
+                  ]}
+                  footnote="Test Case Management (Exercise 2)."
+                />
               </LabCard>
-
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-bold text-slate-900">Generated PDF / Printable Report</h3>
-                <Button onClick={() => window.print()} className="bg-blue-600 text-white text-xs gap-1.5">
-                  <Download className="h-4 w-4" /> Print / Download PDF
-                </Button>
-              </div>
 
               <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm space-y-6 text-slate-800">
                 <div className="border-b border-slate-200 pb-4 flex justify-between items-start">
@@ -1186,8 +1181,8 @@ export function TestCaseManagementPage() {
               </div>
             </div>
           )}
-        </main>
-      </div>
+        </div>
+    </LabPageShell>
 
       {/* Create Custom Project Modal */}
       <Exp2Modal isOpen={isCreateProjOpen} onClose={() => setIsCreateProjOpen(false)} title="Create New Project">
@@ -1317,6 +1312,6 @@ export function TestCaseManagementPage() {
           </div>
         </form>
       </Exp2Modal>
-    </div>
+    </>
   );
 }

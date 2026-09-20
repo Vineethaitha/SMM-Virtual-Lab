@@ -7,7 +7,6 @@ import {
   Gauge,
   CheckCircle2,
   AlertTriangle,
-  Printer,
   Trash2,
   Plus,
   BookOpen,
@@ -21,8 +20,12 @@ import {
   RotateCcw
 } from "lucide-react";
 
-import { LabCard, LabInfoBox, LabStepList } from "@/components/lab/LabCard";
-import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
+import { LabCard, LabFormula, LabStepList, LabThresholds } from "@/components/lab/LabCard";
+import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
+import {
+  ReportDownloadBar,
+  ReportStudentFields,
+} from "@/components/lab/ReportForm";
 
 import {
   FPComponentItem,
@@ -41,11 +44,20 @@ import {
   calcCompliance
 } from "@/data/exp3Data";
 
+type Exp3Tab = "aim" | "objective" | "theory" | "procedure" | "simulation" | "exercise" | "conclusion";
+
+const EXP3_SECTIONS: LabPageSection<Exp3Tab>[] = [
+  { id: "aim", label: "Aim", icon: Target },
+  { id: "objective", label: "Objective", icon: BookOpen },
+  { id: "theory", label: "Theory", icon: Layers },
+  { id: "procedure", label: "Procedure", icon: ListOrdered },
+  { id: "simulation", label: "Simulation", icon: Calculator },
+  { id: "exercise", label: "Exercise", icon: HelpCircle },
+  { id: "conclusion", label: "Conclusion", icon: Award },
+];
+
 export function SoftwareSizeEstimationPage() {
-  // Navigation tabs: aim, objective, theory, procedure, simulation, exercise, conclusion
-  const [activeTab, setActiveTab] = useState<
-    "aim" | "objective" | "theory" | "procedure" | "simulation" | "exercise" | "conclusion"
-  >("aim");
+  const [activeTab, setActiveTab] = useState<Exp3Tab>("aim");
 
   // Simulation sub-tabs: 0: picker, 1: fp_counter, 2: gsc_ratings, 3: cocomo_dashboard, 4: compliance
   const [simSubTab, setSimSubTab] = useState<number>(0);
@@ -321,18 +333,6 @@ export function SoftwareSizeEstimationPage() {
       });
   };
 
-  const handleSaveStudentInfo = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeProjectId) return;
-
-    fetch(`/api/v1/size/projects/${activeProjectId}/student-info`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(studentInfo)
-    }).catch(() => {});
-    alert("Student Info saved successfully!");
-  };
-
   const handleQuizSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     let score = 0;
@@ -407,77 +407,26 @@ export function SoftwareSizeEstimationPage() {
   };
 
   return (
-    <div className="flex h-screen bg-slate-100 overflow-hidden font-sans text-slate-800">
-      {/* Shared Experiment Sidebar */}
-      <ExperimentSidebar />
-
-      {/* Main Content Workspace */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        {/* Header Bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-slate-200 bg-white/95 px-6 py-3.5 backdrop-blur-md shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
-              <Ruler className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider bg-blue-100 text-blue-700 rounded-full">
-                  Experiment 3
-                </span>
-                <h1 className="text-lg font-bold text-slate-900 leading-tight">Software Size Estimation</h1>
-              </div>
-              <p className="text-xs text-slate-500">
-                Function Point Analysis (IFPUG) & COCOMO Basic Effort / Schedule Modeling
-              </p>
+    <LabPageShell
+      experimentNumber={3}
+      title="Software Size Estimation"
+      subtitle="Estimate software size with Function Point Analysis and the COCOMO Basic model, then relate estimates to measured KLOC."
+      sections={EXP3_SECTIONS}
+      activeSection={activeTab}
+      onSectionChange={setActiveTab}
+      badgeIcon={Ruler}
+      headerAction={
+        activeProject ? (
+          <div className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-xs text-white">
+            <div className="font-semibold">{activeProject.name}</div>
+            <div className="text-white/70">
+              {activeProject.project_type} · {activeProject.language}
             </div>
           </div>
-
-          {activeProject && (
-            <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2">
-              <FolderPlus className="w-4 h-4 text-blue-600" />
-              <div className="text-xs">
-                <div className="font-semibold text-slate-800">{activeProject.name}</div>
-                <div className="text-slate-500">
-                  {activeProject.project_type} • {activeProject.language}
-                </div>
-              </div>
-            </div>
-          )}
-        </header>
-
-        {/* Main Workspace Body */}
-        <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
-          {/* Navigation Tabs */}
-          <nav className="flex space-x-1.5 bg-white border border-slate-200 p-1.5 rounded-xl shadow-sm overflow-x-auto">
-            {[
-              { id: "aim", label: "Aim", icon: Target },
-              { id: "objective", label: "Objective", icon: BookOpen },
-              { id: "theory", label: "Theory", icon: Layers },
-              { id: "procedure", label: "Procedure", icon: ListOrdered },
-              { id: "simulation", label: "Simulation", icon: Calculator },
-              { id: "exercise", label: "Exercise", icon: HelpCircle },
-              { id: "conclusion", label: "Conclusion", icon: Award }
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all whitespace-nowrap ${
-                    isActive
-                      ? "bg-blue-600 text-white font-semibold shadow-sm"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </nav>
-
-          {/* --- TAB CONTENT --- */}
+        ) : undefined
+      }
+    >
+        <div className="space-y-6">
 
           {/* 1. AIM TAB */}
           {activeTab === "aim" && (
@@ -580,58 +529,52 @@ export function SoftwareSizeEstimationPage() {
               </LabCard>
 
               {/* VAF & AFP Formulas */}
-              <div className="grid md:grid-cols-2 gap-6">
-                <LabInfoBox title="Value Adjustment Factor (VAF)">
-                  <div className="font-mono bg-blue-100 text-blue-900 px-3 py-2 rounded-lg text-sm mb-2 font-bold">
-                    VAF = 0.65 + (0.01 × TDI)
-                  </div>
-                  <p className="text-xs text-blue-800">
-                    TDI is the Total Degree of Influence, calculated as the sum of all 14 General System Characteristics (rated 0 to 5).
-                    VAF always ranges between <strong>0.65</strong> and <strong>1.35</strong>.
+              <div className="grid gap-4 md:grid-cols-2">
+                <LabCard title="Value Adjustment Factor (VAF)">
+                  <p className="mb-3 text-sm text-slate-600">
+                    TDI is the Total Degree of Influence from the 14 General System Characteristics (0 to 5 each).
                   </p>
-                </LabInfoBox>
-
-                <LabInfoBox title="Adjusted Function Points (AFP) & KLOC">
-                  <div className="font-mono bg-blue-100 text-blue-900 px-3 py-2 rounded-lg text-sm mb-2 font-bold">
-                    AFP = UFP × VAF<br />
-                    KLOC = (AFP × LOC_per_FP) / 1000
+                  <div className="mb-3">
+                    <LabFormula>VAF = 0.65 + (0.01 × TDI)</LabFormula>
                   </div>
-                  <p className="text-xs text-blue-800">
-                    LOC_per_FP represents the language expansion factor (e.g., Python = 42, Java = 53, C++ = 53, C = 128).
+                  <LabThresholds
+                    caption="Laboratory range:"
+                    rows={[
+                      { range: "0.65", label: "Minimum VAF", color: "bg-slate-100 text-slate-700" },
+                      { range: "1.00", label: "Unadjusted", color: "bg-blue-100 text-blue-700" },
+                      { range: "1.35", label: "Maximum VAF", color: "bg-amber-100 text-amber-700" },
+                    ]}
+                  />
+                </LabCard>
+                <LabCard title="Adjusted Function Points & KLOC">
+                  <p className="mb-3 text-sm text-slate-600">
+                    AFP scales unadjusted points by VAF. KLOC uses a language expansion factor.
                   </p>
-                </LabInfoBox>
+                  <div className="space-y-1.5">
+                    <LabFormula>AFP = UFP × VAF</LabFormula>
+                    <LabFormula>KLOC = (AFP × LOC_per_FP) / 1000</LabFormula>
+                  </div>
+                </LabCard>
               </div>
 
               {/* COCOMO Basic */}
               <LabCard title="2. COCOMO Basic Model" icon={Gauge}>
-                <div className="grid md:grid-cols-3 gap-4 text-xs">
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <div className="font-bold text-slate-900 text-sm">Organic Mode</div>
-                    <p className="text-slate-600">Small, simple projects with experienced teams working in a relaxed environment.</p>
-                    <div className="font-mono text-blue-700 bg-white p-2 rounded border border-slate-200 font-bold">
-                      Effort = 2.4 × (KLOC)<sup>1.05</sup><br />
-                      Time = 2.5 × (Effort)<sup>0.38</sup>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <div className="font-bold text-slate-900 text-sm">Semi-Detached Mode</div>
-                    <p className="text-slate-600">Medium-sized projects with mixed team experience and rigid/flexible requirements.</p>
-                    <div className="font-mono text-blue-700 bg-white p-2 rounded border border-slate-200 font-bold">
-                      Effort = 3.0 × (KLOC)<sup>1.12</sup><br />
-                      Time = 2.5 × (Effort)<sup>0.35</sup>
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-                    <div className="font-bold text-slate-900 text-sm">Embedded Mode</div>
-                    <p className="text-slate-600">Complex projects with tight hardware/software constraints and strict operational rules.</p>
-                    <div className="font-mono text-blue-700 bg-white p-2 rounded border border-slate-200 font-bold">
-                      Effort = 3.6 × (KLOC)<sup>1.20</sup><br />
-                      Time = 2.5 × (Effort)<sup>0.32</sup>
-                    </div>
-                  </div>
+                <p className="mb-3 text-sm text-slate-600">
+                  Effort is in person-months. Schedule is in months. Team size is Effort / Time.
+                </p>
+                <div className="mb-3 space-y-1.5">
+                  <LabFormula>Effort = a × (KLOC)^b</LabFormula>
+                  <LabFormula>Time = c × (Effort)^d</LabFormula>
+                  <LabFormula>Team Size = Effort / Time</LabFormula>
                 </div>
+                <LabThresholds
+                  caption="Laboratory coefficients (COCOMO Basic):"
+                  rows={[
+                    { range: "Organic  a=2.4 b=1.05", label: "Small / experienced", color: "bg-emerald-100 text-emerald-700" },
+                    { range: "Semi-detached  a=3.0 b=1.12", label: "Medium / mixed", color: "bg-blue-100 text-blue-700" },
+                    { range: "Embedded  a=3.6 b=1.20", label: "Complex / rigid", color: "bg-amber-100 text-amber-700" },
+                  ]}
+                />
               </LabCard>
             </div>
           )}
@@ -1275,63 +1218,49 @@ export function SoftwareSizeEstimationPage() {
 
           {/* 7. CONCLUSION TAB */}
           {activeTab === "conclusion" && (
-            <div className="bg-white border border-slate-200 rounded-xl p-8 shadow-sm space-y-8">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <Award className="w-6 h-6 text-blue-600" /> Conclusion & Printable Lab Report
-                  </h2>
-                  <p className="text-xs text-slate-500">Generate an official printable report containing all metrics and audit results</p>
-                </div>
-
-                {activeProject && (
-                  <a
-                    href={`/api/v1/size/projects/${activeProject.id}/report.pdf`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors flex items-center gap-2 shadow-sm"
-                  >
-                    <Printer className="w-4 h-4" /> Download / Print PDF Report
-                  </a>
-                )}
-              </div>
-
-              {/* Student Info Form */}
-              <div className="p-6 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
-                <h3 className="text-sm font-bold text-slate-900">Student Identification</h3>
-                <form onSubmit={handleSaveStudentInfo} className="grid md:grid-cols-3 gap-4 text-xs">
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-1">Student Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={studentInfo.name}
-                      onChange={(e) => setStudentInfo((prev) => ({ ...prev, name: e.target.value }))}
-                      placeholder="John Doe"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-slate-700 font-semibold mb-1">Registration Number</label>
-                    <input
-                      type="text"
-                      required
-                      value={studentInfo.registration_number}
-                      onChange={(e) => setStudentInfo((prev) => ({ ...prev, registration_number: e.target.value }))}
-                      placeholder="RA2111003010001"
-                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-900"
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <button
-                      type="submit"
-                      className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg transition-colors"
-                    >
-                      Save Student Info
-                    </button>
-                  </div>
-                </form>
-              </div>
+            <div className="space-y-6">
+              <LabCard title="Generate Lab Report" icon={Award}>
+                <ReportDownloadBar
+                  disabled={!activeProject || !quizSubmitted}
+                  exporting={false}
+                  onDownload={() => {
+                    if (!activeProject) return;
+                    fetch(`/api/v1/size/projects/${activeProject.id}/student-info`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(studentInfo),
+                    }).catch(() => {});
+                    window.open(`/api/v1/size/projects/${activeProject.id}/report.pdf`, "_blank");
+                  }}
+                  hint={
+                    !activeProject
+                      ? "Create a project in Simulation first."
+                      : !quizSubmitted
+                        ? "Complete the Assessment Quiz in Exercise before downloading the PDF."
+                        : `Project: ${activeProject.name} · ${activeProject.language}`
+                  }
+                />
+                <ReportStudentFields
+                  form={{
+                    names: studentInfo.name,
+                    regs: studentInfo.registration_number,
+                    title: "Software Size Estimation",
+                    origin: "own",
+                    github: "",
+                    description: "Function Point Analysis and COCOMO Basic modelled in 21CSC403T Virtual Lab Exercise 3.",
+                  }}
+                  onChange={(key, value) => {
+                    if (key === "names") setStudentInfo((prev) => ({ ...prev, name: value }));
+                    if (key === "regs") setStudentInfo((prev) => ({ ...prev, registration_number: value }));
+                  }}
+                  originOptions={[
+                    { value: "own", label: "Own project" },
+                    { value: "sample", label: "Lab sample" },
+                    { value: "github", label: "GitHub project" },
+                  ]}
+                  footnote="Function Point Analysis & COCOMO (Exercise 3)."
+                />
+              </LabCard>
 
               {/* Live Report Preview (Sections A, B, C, D) */}
               <div className="p-6 bg-slate-900 text-slate-100 rounded-xl font-mono text-xs space-y-6">
@@ -1397,8 +1326,7 @@ export function SoftwareSizeEstimationPage() {
               </div>
             </div>
           )}
-        </main>
-      </div>
-    </div>
+        </div>
+    </LabPageShell>
   );
 }

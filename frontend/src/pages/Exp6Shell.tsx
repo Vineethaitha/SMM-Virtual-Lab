@@ -19,6 +19,7 @@ import {
   BookOpen,
   Check,
   ClipboardList,
+  Download,
   FileText,
   FlaskConical,
   Lightbulb,
@@ -36,8 +37,14 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle, Badge } from "@/components/ui/card";
+import { Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LabCard, LabFormula, LabInfoBox, LabKpiCard, LabThresholds } from "@/components/lab/LabCard";
+import {
+  ReportDownloadBar,
+  ReportStudentFields,
+  type ReportStudentForm,
+} from "@/components/lab/ReportForm";
 import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
 import { cn } from "@/lib/utils";
 
@@ -169,6 +176,40 @@ const STATUS_BADGE: Record<"ok" | "warn" | "crit", { label: string; variant: "ok
 
 const CLASS_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
+function thresholdRows(key: MetricKey): { range: string; label: string; color: string }[] {
+  if (key === "lcom") {
+    return [
+      { range: "= 0", label: "OK · Cohesive", color: "bg-emerald-100 text-emerald-700" },
+      { range: "≥ 1", label: "HIGH · Split class", color: "bg-rose-100 text-rose-700" },
+    ];
+  }
+  const t = THRESHOLDS[key];
+  const warn = Math.ceil(t * 0.75);
+  return [
+    { range: `< ${warn}`, label: "OK", color: "bg-emerald-100 text-emerald-700" },
+    { range: `${warn} – ${t - 1}`, label: "WARN", color: "bg-amber-100 text-amber-700" },
+    { range: `≥ ${t}`, label: "HIGH", color: "bg-rose-100 text-rose-700" },
+  ];
+}
+
+function quizOptionClass({
+  selected,
+  revealed,
+  isCorrectOption,
+}: {
+  selected: boolean;
+  revealed: boolean;
+  isCorrectOption: boolean;
+}) {
+  if (revealed) {
+    if (isCorrectOption) return "border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold";
+    if (selected) return "border-red-400 bg-red-50 text-red-700";
+    return "border-slate-100 bg-slate-50 text-slate-400";
+  }
+  if (selected) return "border-blue-500 bg-blue-50 text-blue-800";
+  return "border-slate-200 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50";
+}
+
 // Correct issue type per class (for self-assessment)
 type IssueType = "God Class" | "Feature Envy" | "Healthy" | "Low Coupling";
 const CORRECT_ISSUES: Record<string, IssueType> = {
@@ -183,16 +224,12 @@ const ISSUE_OPTIONS: IssueType[] = ["God Class", "Feature Envy", "Healthy", "Low
 // ─── Disclaimer ───────────────────────────────────────────────────────────────
 function DisclaimerBanner() {
   return (
-    <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-      <div>
-        <span className="font-semibold">Simulated / Educational Dataset — </span>
-        The metric values below were constructed for teaching purposes to illustrate how CK metrics
-        are interpreted. They were <em>not</em> produced by running CK or SonarCloud against a real
-        repository. In a live experiment, these numbers would be replaced by the CSV output of{" "}
-        <code className="font-mono text-xs">java -jar ck.jar ...</code> or by the SonarCloud API.
-      </div>
-    </div>
+    <LabInfoBox variant="warning" title="Simulated / Educational Dataset">
+      The metric values below were constructed for teaching purposes to illustrate how CK metrics
+      are interpreted. They were <em>not</em> produced by running CK or SonarCloud against a real
+      repository. In a live experiment, these numbers would be replaced by the CSV output of{" "}
+      <code className="font-mono text-xs">java -jar ck.jar ...</code> or by the SonarCloud API.
+    </LabInfoBox>
   );
 }
 
@@ -200,20 +237,56 @@ function DisclaimerBanner() {
 function TheoryCard({ section }: { section: Exp6Section }) {
   const copy = COPY[section];
   if (!copy.body.length) return null;
+  const icons: Partial<Record<Exp6Section, typeof Target>> = {
+    aim: Target,
+    objective: Lightbulb,
+    procedure: ClipboardList,
+    conclusion: FileText,
+    theory: BookOpen,
+  };
+  const Icon = icons[section];
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Activity className="h-5 w-5 text-primary" />
-          {copy.title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="max-w-4xl space-y-3 text-sm leading-relaxed text-muted-foreground">
+    <LabCard title={copy.title} icon={Icon}>
+      <div className="max-w-4xl space-y-3 text-sm leading-relaxed text-slate-600">
         {copy.body.map((p) => (
           <p key={p.slice(0, 48)}>{p}</p>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </LabCard>
+  );
+}
+
+const THEORY_FORMULAS: { key: MetricKey; title: string; formula: string; bodyIndex: number }[] = [
+  { key: "wmc", title: "WMC (Weighted Methods per Class)", formula: "WMC = Σ cyclomatic complexity of all methods", bodyIndex: 1 },
+  { key: "dit", title: "DIT (Depth of Inheritance Tree)", formula: "DIT = longest path from class to hierarchy root", bodyIndex: 2 },
+  { key: "noc", title: "NOC (Number of Children)", formula: "NOC = number of immediate subclasses", bodyIndex: 3 },
+  { key: "cbo", title: "CBO (Coupling Between Object classes)", formula: "CBO = number of classes coupled to this class", bodyIndex: 4 },
+  { key: "rfc", title: "RFC (Response For a Class)", formula: "RFC = |own methods ∪ methods called in response|", bodyIndex: 5 },
+  { key: "lcom", title: "LCOM (Lack of Cohesion in Methods)", formula: "LCOM = dissimilarity of methods via shared instance variables", bodyIndex: 6 },
+];
+
+function TheorySection() {
+  return (
+    <div className="space-y-4">
+      <LabCard title="Theory" icon={BookOpen}>
+        <p className="text-sm leading-relaxed text-slate-600">{COPY.theory.body[0]}</p>
+      </LabCard>
+      {THEORY_FORMULAS.map((m) => (
+        <LabCard key={m.key} title={m.title}>
+          <p className="mb-3 text-sm leading-relaxed text-slate-600">{COPY.theory.body[m.bodyIndex]}</p>
+          <div className="mb-3">
+            <LabFormula>{m.formula}</LabFormula>
+          </div>
+          <LabThresholds
+            caption={`Laboratory threshold (${m.key.toUpperCase()} ${THRESHOLDS[m.key]}):`}
+            rows={thresholdRows(m.key)}
+          />
+        </LabCard>
+      ))}
+      <LabCard title="Tool options">
+        <p className="text-sm leading-relaxed text-slate-600">{COPY.theory.body[7]}</p>
+      </LabCard>
+    </div>
   );
 }
 
@@ -221,16 +294,13 @@ function TheoryCard({ section }: { section: Exp6Section }) {
 function MetricsTable() {
   const metricKeys: MetricKey[] = ["wmc", "dit", "noc", "cbo", "rfc", "lcom"];
   return (
-    <Card className="overflow-hidden">
-      <CardHeader>
-        <CardTitle>CK Metric Values by Class</CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Thresholds: WMC ≥ {THRESHOLDS.wmc} | CBO ≥ {THRESHOLDS.cbo} | RFC ≥ {THRESHOLDS.rfc} | LCOM {">"} {THRESHOLDS.lcom}
-        </p>
-      </CardHeader>
-      <CardContent className="overflow-x-auto p-0">
+    <LabCard title="CK Metric Values by Class" padded={false}>
+      <p className="border-b border-slate-100 px-5 py-2 text-xs text-slate-500">
+        Thresholds: WMC ≥ {THRESHOLDS.wmc} | CBO ≥ {THRESHOLDS.cbo} | RFC ≥ {THRESHOLDS.rfc} | LCOM {">"} {THRESHOLDS.lcom}
+      </p>
+      <div className="overflow-x-auto">
         <table className="w-full text-left text-xs">
-          <thead className="bg-muted/40 text-muted-foreground">
+          <thead className="bg-slate-50 text-slate-500">
             <tr>
               <th className="px-4 py-3 font-semibold">Class</th>
               <th className="px-4 py-3 font-semibold">Layer</th>
@@ -241,16 +311,16 @@ function MetricsTable() {
           </thead>
           <tbody>
             {OO_CLASSES.map((cls) => (
-              <tr key={cls.name} className="border-t border-border hover:bg-secondary/40">
-                <td className="px-4 py-2.5 font-mono font-medium text-foreground">{cls.name}</td>
-                <td className="px-4 py-2.5 text-muted-foreground">{cls.layer}</td>
+              <tr key={cls.name} className="border-t border-slate-200 hover:bg-slate-50">
+                <td className="px-4 py-2.5 font-mono font-medium text-slate-800">{cls.name}</td>
+                <td className="px-4 py-2.5 text-slate-500">{cls.layer}</td>
                 {metricKeys.map((k) => {
                   const val = cls[k as keyof OOClass] as number;
                   const st = metricStatus(k, val);
                   const { label, variant } = STATUS_BADGE[st];
                   return (
                     <td key={k} className="px-4 py-2.5">
-                      <span className="mr-1.5 font-mono">{val}</span>
+                      <span className="mr-1.5 font-mono text-slate-700">{val}</span>
                       <Badge variant={variant}>{label}</Badge>
                     </td>
                   );
@@ -259,8 +329,8 @@ function MetricsTable() {
             ))}
           </tbody>
         </table>
-      </CardContent>
-    </Card>
+      </div>
+    </LabCard>
   );
 }
 
@@ -281,11 +351,8 @@ function RadarSection() {
   });
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Normalised Radar — each metric scaled 0–100, dashed line = threshold</CardTitle>
-      </CardHeader>
-      <CardContent className="h-80">
+    <LabCard title="Normalised Radar — each metric scaled 0–100, dashed line = threshold">
+      <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart data={radarData} outerRadius={100}>
             <PolarGrid stroke="#d6deea" />
@@ -299,20 +366,20 @@ function RadarSection() {
               stroke="#6b7280" fill="transparent" strokeDasharray="5 4" dot={false} />
           </RadarChart>
         </ResponsiveContainer>
-        <div className="mt-2 flex flex-wrap gap-3">
-          {OO_CLASSES.map((cls, i) => (
-            <span key={cls.name} className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: CLASS_COLORS[i] }} />
-              {cls.name}
-            </span>
-          ))}
-          <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <span className="inline-block h-0.5 w-5 border-t-2 border-dashed border-gray-400" />
-            Threshold
+      </div>
+      <div className="mt-2 flex flex-wrap gap-3">
+        {OO_CLASSES.map((cls, i) => (
+          <span key={cls.name} className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: CLASS_COLORS[i] }} />
+            {cls.name}
           </span>
-        </div>
-      </CardContent>
-    </Card>
+        ))}
+        <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
+          <span className="inline-block h-0.5 w-5 border-t-2 border-dashed border-slate-400" />
+          Threshold
+        </span>
+      </div>
+    </LabCard>
   );
 }
 
@@ -329,60 +396,44 @@ function SelfAssessmentPanel() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Activity className="h-4 w-4 text-primary" />
-          Self-Assessment — Classify Each Class
-        </CardTitle>
-        <p className="text-xs text-muted-foreground">
-          Based on the metric table above, select the primary design smell for each class,
-          then click <strong>Reveal</strong> to check your answer.
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <LabCard title="Self-Assessment — Classify Each Class" icon={Activity}>
+      <p className="mb-4 text-xs text-slate-500">
+        Based on the metric table above, select the primary design smell for each class,
+        then click <strong>Reveal</strong> to check your answer.
+      </p>
+      <div className="space-y-4">
         {OO_CLASSES.map((cls) => {
           const sel = selected[cls.name] ?? null;
           const rev = revealed[cls.name] ?? false;
           const correct = CORRECT_ISSUES[cls.name];
           const isRight = sel === correct;
           return (
-            <div key={cls.name} className="rounded-lg border border-border p-4">
+            <div key={cls.name} className="rounded-lg border border-slate-200 p-4">
               <div className="mb-3 flex items-center gap-2">
-                <span className="font-mono text-sm font-semibold text-foreground">{cls.name}</span>
-                <span className="text-xs text-muted-foreground">({cls.layer})</span>
-                <span className="ml-auto text-[11px] text-muted-foreground">
+                <span className="font-mono text-sm font-semibold text-slate-800">{cls.name}</span>
+                <span className="text-xs text-slate-500">({cls.layer})</span>
+                <span className="ml-auto text-[11px] text-slate-500">
                   WMC {cls.wmc} · CBO {cls.cbo} · RFC {cls.rfc} · LCOM {cls.lcom}
                 </span>
               </div>
 
-              {/* Option buttons */}
               <div className="flex flex-wrap gap-2">
-                {ISSUE_OPTIONS.map((opt) => {
-                  const chosen = sel === opt;
-                  let btnClass = "border border-border bg-white text-muted-foreground hover:bg-muted/60";
-                  if (rev) {
-                    if (opt === correct) btnClass = "border-2 border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold";
-                    else if (chosen && !isRight) btnClass = "border-2 border-red-400 bg-red-50 text-red-700";
-                    else btnClass = "border border-border bg-white text-muted-foreground opacity-50";
-                  } else if (chosen) {
-                    btnClass = "border-2 border-primary bg-primary/10 text-primary font-semibold";
-                  }
-                  return (
-                    <button
-                      key={opt}
-                      type="button"
-                      disabled={rev}
-                      onClick={() => pick(cls.name, opt)}
-                      className={cn("rounded-md px-3 py-1.5 text-xs transition-all", btnClass)}
-                    >
-                      {opt}
-                    </button>
-                  );
-                })}
+                {ISSUE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    disabled={rev}
+                    onClick={() => pick(cls.name, opt)}
+                    className={cn(
+                      "rounded-lg border px-3 py-1.5 text-xs transition-all",
+                      quizOptionClass({ selected: sel === opt, revealed: rev, isCorrectOption: opt === correct }),
+                    )}
+                  >
+                    {opt}
+                  </button>
+                ))}
               </div>
 
-              {/* Reveal / Result */}
               <div className="mt-3 flex items-center gap-3">
                 {!rev && (
                   <Button size="sm" variant="outline" onClick={() => reveal(cls.name)} disabled={!sel}>
@@ -403,8 +454,8 @@ function SelfAssessmentPanel() {
             </div>
           );
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </LabCard>
   );
 }
 
@@ -443,57 +494,45 @@ function MetricExplorer() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sliders className="h-4 w-4 text-primary" />
-            Interactive Metric Explorer
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Drag the sliders to simulate a class's metric values. Watch how the design-smell
-            diagnosis and health score respond in real time.
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid gap-4 md:grid-cols-2">
-            {EXPLORER_METRICS.map(({ key, label, max, description }) => {
-              const val = vals[key];
-              const st = metricStatus(key, val);
-              const { variant } = STATUS_BADGE[st];
-              return (
-                <div key={key} className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label htmlFor={`slider-${key}`} className="text-xs font-semibold text-foreground">
-                      {label} = <span className="font-mono">{val}</span>
-                    </label>
-                    <Badge variant={variant}>{STATUS_BADGE[st].label}</Badge>
-                  </div>
-                  <input
-                    id={`slider-${key}`}
-                    type="range"
-                    min={0}
-                    max={max}
-                    value={val}
-                    onChange={(e) => set(key, Number(e.target.value))}
-                    className="w-full accent-primary"
-                  />
-                  <p className="text-[10px] text-muted-foreground">{description}</p>
+      <LabCard title="Interactive Metric Explorer" icon={Sliders}>
+        <p className="mb-5 text-xs text-slate-500">
+          Drag the sliders to simulate a class's metric values. Watch how the design-smell
+          diagnosis and health score respond in real time.
+        </p>
+        <div className="grid gap-4 md:grid-cols-2">
+          {EXPLORER_METRICS.map(({ key, label, max, description }) => {
+            const val = vals[key];
+            const st = metricStatus(key, val);
+            const { variant } = STATUS_BADGE[st];
+            return (
+              <div key={key} className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label htmlFor={`slider-${key}`} className="text-xs font-semibold text-slate-800">
+                    {label} = <span className="font-mono">{val}</span>
+                  </label>
+                  <Badge variant={variant}>{STATUS_BADGE[st].label}</Badge>
                 </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                <input
+                  id={`slider-${key}`}
+                  type="range"
+                  min={0}
+                  max={max}
+                  value={val}
+                  onChange={(e) => set(key, Number(e.target.value))}
+                  className="w-full accent-blue-600"
+                />
+                <p className="text-[10px] text-slate-500">{description}</p>
+              </div>
+            );
+          })}
+        </div>
+      </LabCard>
 
-      {/* Live diagnosis */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Live Diagnosis</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+      <LabCard title="Live Diagnosis">
+        <div className="space-y-3">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-foreground">Design Health Score</span>
-            <div className="flex-1 overflow-hidden rounded-full bg-muted h-3">
+            <span className="text-sm font-medium text-slate-800">Design Health Score</span>
+            <div className="h-3 flex-1 overflow-hidden rounded-full bg-slate-200">
               <div
                 className={cn("h-3 rounded-full transition-all duration-300",
                   healthScore >= 75 ? "bg-emerald-500" : healthScore >= 50 ? "bg-amber-400" : "bg-red-500"
@@ -522,8 +561,8 @@ function MetricExplorer() {
               ))}
             </ul>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </LabCard>
     </div>
   );
 }
@@ -532,50 +571,38 @@ function MetricExplorer() {
 function AnalysisSection() {
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-            Problematic Class 1 — NotificationEngine
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-          <p><strong className="text-foreground">Metric profile:</strong> WMC = 31, CBO = 16, RFC = 58 — all above threshold.</p>
-          <p><strong className="text-foreground">Why problematic:</strong> Elevated WMC (31) indicates the class contains too many weighted methods for a single responsibility. High CBO (16) means changes in any of 16 external classes may require changes here — a classic ripple-change risk. RFC = 58 implies that testing a single object requires understanding 58 possible response paths, dramatically increasing test surface area.</p>
-          <p><strong className="text-foreground">Design smells:</strong> God Class / Large Class (WMC), Inappropriate Intimacy (CBO), Complex Class (RFC).</p>
+      <LabCard title="Problematic Class 1 — NotificationEngine" icon={AlertTriangle}>
+        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
+          <p><strong className="text-slate-800">Metric profile:</strong> WMC = 31, CBO = 16, RFC = 58 — all above threshold.</p>
+          <p><strong className="text-slate-800">Why problematic:</strong> Elevated WMC (31) indicates the class contains too many weighted methods for a single responsibility. High CBO (16) means changes in any of 16 external classes may require changes here — a classic ripple-change risk. RFC = 58 implies that testing a single object requires understanding 58 possible response paths, dramatically increasing test surface area.</p>
+          <p><strong className="text-slate-800">Design smells:</strong> God Class / Large Class (WMC), Inappropriate Intimacy (CBO), Complex Class (RFC).</p>
           <div className="grid grid-cols-3 gap-2">
             {[["WMC = 31", "threshold 20", "crit"], ["CBO = 16", "threshold 14", "crit"], ["RFC = 58", "threshold 50", "crit"]].map(([l, s, v]) => (
-              <div key={l} className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                <div className="font-mono text-lg font-bold text-foreground">{l.split("= ")[1]}</div>
-                <div className="text-xs text-muted-foreground">{l.split(" =")[0]} — {s}</div>
+              <div key={l} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+                <div className="font-mono text-lg font-bold text-slate-800">{l.split("= ")[1]}</div>
+                <div className="text-xs text-slate-500">{l.split(" =")[0]} — {s}</div>
                 <Badge variant={v as "crit"} className="mt-1">HIGH</Badge>
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-amber-500" />
-            Problematic Class 2 — ReportBuilder
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-          <p><strong className="text-foreground">Metric profile:</strong> LCOM = 1, WMC = 18 (approaching threshold), RFC = 42.</p>
-          <p><strong className="text-foreground">Why problematic:</strong> LCOM = 1 (LCOM1 formulation) means that no two methods share any instance variable — the class has been assembled from logically unrelated sub-functions, violating the Single Responsibility Principle. High RFC (42) confirms wide external interaction.</p>
-          <p><strong className="text-foreground">Design smells:</strong> Low Cohesion / Feature Envy, Data Clumps.</p>
+        </div>
+      </LabCard>
+      <LabCard title="Problematic Class 2 — ReportBuilder" icon={AlertTriangle}>
+        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
+          <p><strong className="text-slate-800">Metric profile:</strong> LCOM = 1, WMC = 18 (approaching threshold), RFC = 42.</p>
+          <p><strong className="text-slate-800">Why problematic:</strong> LCOM = 1 (LCOM1 formulation) means that no two methods share any instance variable — the class has been assembled from logically unrelated sub-functions, violating the Single Responsibility Principle. High RFC (42) confirms wide external interaction.</p>
+          <p><strong className="text-slate-800">Design smells:</strong> Low Cohesion / Feature Envy, Data Clumps.</p>
           <div className="grid grid-cols-3 gap-2">
             {[["LCOM = 1", "threshold 0", "crit"], ["WMC = 18", "near limit 20", "warn"], ["RFC = 42", "threshold 50", "warn"]].map(([l, s, v]) => (
-              <div key={l} className="rounded-lg border border-border bg-muted/30 p-3 text-center">
-                <div className="font-mono text-lg font-bold text-foreground">{l.split("= ")[1]}</div>
-                <div className="text-xs text-muted-foreground">{l.split(" =")[0]} — {s}</div>
+              <div key={l} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+                <div className="font-mono text-lg font-bold text-slate-800">{l.split("= ")[1]}</div>
+                <div className="text-xs text-slate-500">{l.split(" =")[0]} — {s}</div>
                 <Badge variant={v as "crit" | "warn"} className="mt-1">{v === "crit" ? "HIGH" : "WARN"}</Badge>
               </div>
             ))}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </LabCard>
     </div>
   );
 }
@@ -583,9 +610,9 @@ function AnalysisSection() {
 // ─── Refactoring section ──────────────────────────────────────────────────────
 function CodeBlock({ label, code }: { label: string; code: string }) {
   return (
-    <div className="overflow-hidden rounded-md border border-border text-xs">
-      <div className="border-b border-border bg-muted/40 px-3 py-1.5 font-medium text-foreground">{label}</div>
-      <pre className="overflow-x-auto bg-[hsl(220_33%_97%)] px-4 py-3 font-mono leading-relaxed text-foreground">{code}</pre>
+    <div className="overflow-hidden rounded-md border border-slate-200 text-xs">
+      <div className="border-b border-slate-200 bg-slate-50 px-3 py-1.5 font-medium text-slate-800">{label}</div>
+      <pre className="overflow-x-auto bg-slate-50 px-4 py-3 font-mono leading-relaxed text-slate-700">{code}</pre>
     </div>
   );
 }
@@ -593,14 +620,8 @@ function CodeBlock({ label, code }: { label: string; code: string }) {
 function RefactoringSection() {
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wrench className="h-4 w-4 text-primary" />
-            Refactoring Plan — NotificationEngine (Extract Class + Introduce Facade)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm text-muted-foreground">
+      <LabCard title="Refactoring Plan — NotificationEngine (Extract Class + Introduce Facade)" icon={Wrench}>
+        <div className="space-y-4 text-sm text-slate-600">
           <p>The single over-loaded class is split into three focused specialists; a lightweight <code>NotificationFacade</code> delegates to each. This reduces WMC and RFC per class and cuts CBO by limiting each specialist to its own dependency set.</p>
           <div className="grid gap-3 md:grid-cols-2">
             <CodeBlock label="BEFORE — NotificationEngine.java (WMC 31, CBO 16)" code={`class NotificationEngine {
@@ -642,18 +663,12 @@ class NotificationFacade {      // WMC 4, CBO 4
   void notify(User u, Channel c) { … }
 }`} />
           </div>
-          <p><strong className="text-foreground">Expected improvement:</strong> WMC 31 → ≤ 10 per class · CBO 16 → ≤ 6 · RFC 58 → ≤ 20.</p>
-        </CardContent>
-      </Card>
+          <p><strong className="text-slate-800">Expected improvement:</strong> WMC 31 → ≤ 10 per class · CBO 16 → ≤ 6 · RFC 58 → ≤ 20.</p>
+        </div>
+      </LabCard>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Wrench className="h-4 w-4 text-primary" />
-            Refactoring Plan — ReportBuilder (Single Responsibility Decomposition)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm text-muted-foreground">
+      <LabCard title="Refactoring Plan — ReportBuilder (Single Responsibility Decomposition)" icon={Wrench}>
+        <div className="space-y-4 text-sm text-slate-600">
           <p>LCOM = 1 signals method groups with completely disjoint state. Each group becomes its own class; a coordinating builder composes the parts.</p>
           <div className="grid gap-3 md:grid-cols-2">
             <CodeBlock label="BEFORE — ReportBuilder.java (LCOM 1, WMC 18)" code={`class ReportBuilder {
@@ -697,9 +712,9 @@ class ReportBuilder {        // WMC 3, CBO 3
   }
 }`} />
           </div>
-          <p><strong className="text-foreground">Expected improvement:</strong> LCOM 1 → 0 per class · WMC 18 → ≤ 7 · RFC 42 → ≤ 15.</p>
-        </CardContent>
-      </Card>
+          <p><strong className="text-slate-800">Expected improvement:</strong> LCOM 1 → 0 per class · WMC 18 → ≤ 7 · RFC 42 → ≤ 15.</p>
+        </div>
+      </LabCard>
     </div>
   );
 }
@@ -787,18 +802,12 @@ function ExercisePanel() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Activity className="h-5 w-5 text-primary" />
-            Exercise Questions
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Answer all questions based on the metrics and analysis you studied. MCQs are auto-scored.
-            Short-answer questions have a model answer you can compare with.
-          </p>
-        </CardHeader>
-      </Card>
+      <LabCard title="Exercise Questions" icon={Activity}>
+        <p className="text-xs text-slate-500">
+          Answer all questions based on the metrics and analysis you studied. MCQs are auto-scored.
+          Short-answer questions have a model answer you can compare with.
+        </p>
+      </LabCard>
 
       {QUESTIONS.map((q) => {
         const userAnswer = answers[q.id] ?? "";
@@ -807,36 +816,28 @@ function ExercisePanel() {
         const modelShown = !!shown[q.id];
 
         return (
-          <Card key={q.id}>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold text-foreground">
-                Q{q.id}. {q.text}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+          <LabCard key={q.id} title={`Q${q.id}. ${q.text}`}>
+            <div className="space-y-3">
               {q.type === "mcq" && q.options && (
                 <div className="space-y-2">
-                  {q.options.map((opt) => {
-                    let cls = "border border-border bg-white text-muted-foreground hover:bg-muted/50";
-                    if (isSubmitted) {
-                      if (opt === q.answer) cls = "border-2 border-emerald-500 bg-emerald-50 text-emerald-800 font-medium";
-                      else if (opt === userAnswer) cls = "border-2 border-red-400 bg-red-50 text-red-700";
-                      else cls = "border border-border bg-white text-muted-foreground opacity-50";
-                    } else if (userAnswer === opt) {
-                      cls = "border-2 border-primary bg-primary/10 text-primary font-medium";
-                    }
-                    return (
-                      <button
-                        key={opt}
-                        type="button"
-                        disabled={isSubmitted}
-                        onClick={() => setAnswers((a) => ({ ...a, [q.id]: opt }))}
-                        className={cn("block w-full rounded-md px-4 py-2.5 text-left text-xs transition-all", cls)}
-                      >
-                        {opt}
-                      </button>
-                    );
-                  })}
+                  {q.options.map((opt) => (
+                    <button
+                      key={opt}
+                      type="button"
+                      disabled={isSubmitted}
+                      onClick={() => setAnswers((a) => ({ ...a, [q.id]: opt }))}
+                      className={cn(
+                        "block w-full rounded-lg border px-4 py-3 text-left text-sm transition-all",
+                        quizOptionClass({
+                          selected: userAnswer === opt,
+                          revealed: isSubmitted,
+                          isCorrectOption: opt === q.answer,
+                        }),
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
                   {!isSubmitted && (
                     <Button size="sm" disabled={!userAnswer} onClick={() => submit(q.id)}>
                       Submit Answer
@@ -863,7 +864,7 @@ function ExercisePanel() {
                     value={userAnswer}
                     onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
                     placeholder="Type your answer here…"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <div className="flex gap-2">
                     <Button size="sm" disabled={!userAnswer} onClick={() => showModel(q.id)}>
@@ -871,34 +872,104 @@ function ExercisePanel() {
                     </Button>
                   </div>
                   {modelShown && (
-                    <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-xs leading-relaxed text-foreground">
-                      <p className="mb-1 font-semibold text-primary">Model Answer</p>
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-slate-700">
+                      <p className="mb-1 font-semibold text-blue-600">Model Answer</p>
                       {q.answer}
                     </div>
                   )}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </LabCard>
         );
       })}
 
-      {/* Score summary */}
       {QUESTIONS.filter((q) => q.type === "mcq").every((q) => submitted[q.id]) && (
-        <Card>
-          <CardContent className="flex items-center gap-4 py-4">
+        <LabCard>
+          <div className="flex items-center gap-4">
             <div className="text-center">
-              <div className="font-mono text-3xl font-bold text-primary">{mcqScore}/{mcqTotal}</div>
-              <div className="text-xs text-muted-foreground">MCQ Score</div>
+              <div className="font-mono text-3xl font-bold text-blue-600">{mcqScore}/{mcqTotal}</div>
+              <div className="text-xs text-slate-500">MCQ Score</div>
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-600">
               {mcqScore === mcqTotal
                 ? "Full marks on all multiple-choice questions. Excellent work!"
                 : `Review the highlighted questions and the Analysis section for clarification.`}
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </LabCard>
       )}
+    </div>
+  );
+}
+
+function ConclusionSection() {
+  const [student, setStudent] = useState<ReportStudentForm>({
+    names: "",
+    regs: "",
+    title: "OO Metrics with CK / SonarCloud",
+    origin: "sample",
+    github: "",
+    description: "CK metric analysis of the educational class dataset in 21CSC403T Virtual Lab Exercise 6.",
+  });
+  const [exporting, setExporting] = useState(false);
+
+  async function handleDownload() {
+    setExporting(true);
+    try {
+      const { downloadExp6Pdf } = await import("@/lib/reportPdf");
+      await downloadExp6Pdf({
+        names: student.names,
+        regs: student.regs,
+        title: student.title,
+        origin: student.origin,
+        github: student.github,
+        description: student.description,
+        classes: OO_CLASSES,
+        thresholds: THRESHOLDS,
+        conclusion: COPY.conclusion.body.join(" "),
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <TheoryCard section="conclusion" />
+      <LabCard title="Generate Lab Report" icon={Download}>
+        <ReportDownloadBar
+          buttonId="exp6-download-report"
+          disabled={false}
+          exporting={exporting}
+          onDownload={() => void handleDownload()}
+          hint="Report export will use the current class metrics."
+        />
+        <ReportStudentFields
+          form={student}
+          onChange={(key, value) => setStudent((f) => ({ ...f, [key]: value }))}
+          originOptions={[
+            { value: "sample", label: "Lab sample / own snippet" },
+            { value: "own", label: "Own project" },
+            { value: "github", label: "GitHub project" },
+          ]}
+          footnote="CK / SonarCloud OO metrics (Exercise 6)."
+        />
+      </LabCard>
+    </div>
+  );
+}
+
+function MetricsKpiRow() {
+  const maxWmc = Math.max(...OO_CLASSES.map((c) => c.wmc));
+  const maxCbo = Math.max(...OO_CLASSES.map((c) => c.cbo));
+  const maxRfc = Math.max(...OO_CLASSES.map((c) => c.rfc));
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <LabKpiCard label="Classes" value={OO_CLASSES.length} sub="educational dataset" color="blue" />
+      <LabKpiCard label="Max WMC" value={maxWmc} sub={`threshold ${THRESHOLDS.wmc}`} color="indigo" />
+      <LabKpiCard label="Max CBO" value={maxCbo} sub={`threshold ${THRESHOLDS.cbo}`} color="green" />
+      <LabKpiCard label="Max RFC" value={maxRfc} sub={`threshold ${THRESHOLDS.rfc}`} color="amber" />
     </div>
   );
 }
@@ -908,10 +979,12 @@ export function Exp6Shell() {
   const [section, setSection] = useState<Exp6Section>("aim");
 
   function renderBody() {
+    if (section === "theory") return <TheorySection />;
     if (section === "metrics") {
       return (
         <div className="space-y-4">
           <DisclaimerBanner />
+          <MetricsKpiRow />
           <MetricsTable />
           <RadarSection />
           <SelfAssessmentPanel />
@@ -929,6 +1002,7 @@ export function Exp6Shell() {
     if (section === "analysis") return <AnalysisSection />;
     if (section === "refactoring") return <RefactoringSection />;
     if (section === "exercise") return <ExercisePanel />;
+    if (section === "conclusion") return <ConclusionSection />;
     return <TheoryCard section={section} />;
   }
 

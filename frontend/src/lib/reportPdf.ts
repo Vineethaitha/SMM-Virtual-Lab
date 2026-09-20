@@ -4,6 +4,7 @@ import type { AnalysisResult } from "@/lib/types";
 import type { compareAnalyses } from "@/lib/compare";
 import type { Exp4Factor, Exp4QuizQuestion, Exp4Response } from "@/data/exp4Data";
 import type { Exp5ClassMetrics, Exp5QuizQuestion, Exp5Strategy } from "@/data/exp5Data";
+import type { Exp2MetricsResult, Exp2Project, Exp2QuizQuestion, Exp2Requirement, Exp2TestCase } from "@/data/exp2Data";
 
 type Rows = ReturnType<typeof compareAnalyses>;
 
@@ -511,15 +512,89 @@ export async function downloadExp5Pdf(input: Exp5PdfInput) {
   pdf.footerAndSave("21csc403t-exercise5-oo-design-metrics.pdf");
 }
 
+export interface Exp6ClassMetrics {
+  name: string;
+  layer: string;
+  wmc: number;
+  dit: number;
+  noc: number;
+  cbo: number;
+  rfc: number;
+  lcom: number;
+}
+
+export interface Exp6PdfInput {
+  names: string;
+  regs: string;
+  title?: string;
+  origin?: string;
+  github?: string;
+  description?: string;
+  classes: Exp6ClassMetrics[];
+  thresholds: { wmc: number; dit: number; noc: number; cbo: number; rfc: number; lcom: number };
+  conclusion: string;
+}
+
+export async function downloadExp6Pdf(input: Exp6PdfInput) {
+  const pdf = new LabPdf();
+  const date = new Date().toLocaleDateString();
+  await pdf.header(
+    input.title || "OO Metrics with CK / SonarCloud",
+    `21CSC403T Virtual Lab - Exercise 6 Report  |  Generated ${date}`,
+  );
+
+  studentBlock(pdf, {
+    names: input.names,
+    regs: input.regs,
+    title: input.title || "OO Metrics with CK / SonarCloud",
+  });
+  if (input.origin) pdf.field("Origin", `${input.origin}${input.github ? ` (${input.github})` : ""}`);
+  if (input.description) pdf.field("Description", input.description);
+  pdf.y += 6;
+
+  const t = input.thresholds;
+  pdf.heading("2. CK Metric Thresholds");
+  pdf.body(
+    `WMC ${t.wmc}  |  DIT ${t.dit}  |  NOC ${t.noc}  |  CBO ${t.cbo}  |  RFC ${t.rfc}  |  LCOM ${t.lcom}`,
+  );
+
+  pdf.heading("3. Class Metric Values");
+  pdf.table(
+    ["Class", "Layer", "WMC", "DIT", "NOC", "CBO", "RFC", "LCOM"],
+    input.classes.map((c) => [
+      ascii(c.name),
+      ascii(c.layer),
+      String(c.wmc),
+      String(c.dit),
+      String(c.noc),
+      String(c.cbo),
+      String(c.rfc),
+      String(c.lcom),
+    ]),
+  );
+
+  const maxWmc = input.classes.reduce((a, b) => (b.wmc > a.wmc ? b : a));
+  const maxCbo = input.classes.reduce((a, b) => (b.cbo > a.cbo ? b : a));
+  const maxRfc = input.classes.reduce((a, b) => (b.rfc > a.rfc ? b : a));
+  pdf.body(
+    `Dataset size: ${input.classes.length} classes. Highest WMC: ${maxWmc.name} (${maxWmc.wmc}). Highest CBO: ${maxCbo.name} (${maxCbo.cbo}). Highest RFC: ${maxRfc.name} (${maxRfc.rfc}).`,
+  );
+
+  pdf.heading("4. Conclusion");
+  pdf.body(input.conclusion);
+
+  pdf.footerAndSave("21csc403t-exercise6-oo-ck-metrics.pdf");
+}
+
 export interface Exp2PdfInput {
   names: string;
   regs: string;
   project: Exp2Project;
   requirements: Exp2Requirement[];
   testCases: Exp2TestCase[];
-  summary: any;
+  summary: Exp2MetricsResult | null;
   uncovered: Exp2Requirement[];
-  comparison?: { initial: any; current: any };
+  comparison?: { initial: Exp2MetricsResult; current: Exp2MetricsResult };
   conclusion: string;
   quizAnswers?: (number | null)[];
   quizQuestions?: Exp2QuizQuestion[];
@@ -542,19 +617,17 @@ export async function downloadExp2Pdf(input: Exp2PdfInput) {
   pdf.heading("3. Requirement Traceability & Coverage");
   pdf.table(
     ["Key", "Title", "Category", "Priority", "Linked Tests"],
-    input.requirements.map((r: any) => [
-      r.req_id || r.key || r.id,
+    input.requirements.map((r) => [
+      r.req_id || r.id,
       ascii(r.title),
-      (r.category || "functional").toUpperCase(),
-      (r.priority || "Med").toUpperCase(),
-      String(input.testCases.filter((tc: any) => (tc.linked_requirement_ids || tc.requirementIds || []).includes(r.id)).length),
+      r.category.toUpperCase(),
+      r.priority.toUpperCase(),
+      String(input.testCases.filter((tc) => tc.linked_requirement_ids.includes(r.id)).length),
     ]),
     1,
   );
   if (input.summary) {
-    pdf.body(
-      `Total Requirements: ${input.summary.total_requirements ?? (input.summary as any).totalRequirements ?? input.requirements.length}`,
-    );
+    pdf.body(`Total Requirements: ${input.summary.total_requirements}`);
   }
 
   pdf.heading("4. Test Execution Summary");
@@ -563,13 +636,13 @@ export async function downloadExp2Pdf(input: Exp2PdfInput) {
   pdf.heading("5. Test Case Inventory (Sample / Active Cases)");
   pdf.table(
     ["Key", "Title", "Tier", "Priority", "Linked Reqs"],
-    input.testCases.slice(0, 25).map((tc: any) => [
-      tc.tc_id || tc.key || tc.id,
-      ascii(tc.title.length > 38 ? tc.title.slice(0, 38) + "..." : tc.title),
-      tc.tier || tc.type || "functional",
-      tc.priority || "Med",
-      (tc.linked_requirement_ids || tc.requirementIds || [])
-        .map((rid: string) => input.requirements.find((r: any) => r.id === rid)?.req_id ?? rid)
+    input.testCases.slice(0, 25).map((tc) => [
+      tc.tc_id || tc.id,
+      ascii(tc.title.length > 38 ? `${tc.title.slice(0, 38)}...` : tc.title),
+      tc.tier,
+      tc.priority,
+      tc.linked_requirement_ids
+        .map((rid) => input.requirements.find((r) => r.id === rid)?.req_id ?? rid)
         .join(", "),
     ]),
     1,
@@ -578,8 +651,8 @@ export async function downloadExp2Pdf(input: Exp2PdfInput) {
   pdf.heading("6. Testing Gaps & Identified Action Items");
   if (input.uncovered && input.uncovered.length > 0) {
     pdf.body(`The following ${input.uncovered.length} requirement(s) lack passing test evidence:`);
-    input.uncovered.forEach((r: any) => {
-      pdf.bullet(r.req_id || r.key || r.id, `${r.title} (Priority: ${r.priority})`);
+    input.uncovered.forEach((r) => {
+      pdf.bullet(r.req_id || r.id, `${r.title} (Priority: ${r.priority})`);
     });
   } else {
     pdf.body("All defined requirements have at least one passing test case. No uncovered requirements remain.");
@@ -589,5 +662,63 @@ export async function downloadExp2Pdf(input: Exp2PdfInput) {
   pdf.body(input.conclusion || "Test management completed successfully.");
 
   pdf.footerAndSave("21csc403t-exercise2-test-case-management.pdf");
+}
+
+export interface Exp7PdfRequirement {
+  id: number;
+  statement: string;
+  issues: string[];
+}
+
+export interface Exp7PdfInput {
+  names: string;
+  regs: string;
+  title?: string;
+  origin?: string;
+  github?: string;
+  description?: string;
+  conclusion: string;
+  issueCounts: { tag: string; count: number }[];
+  requirements: Exp7PdfRequirement[];
+}
+
+export async function downloadExp7Pdf(input: Exp7PdfInput) {
+  const pdf = new LabPdf();
+  const date = new Date().toLocaleDateString();
+  await pdf.header(
+    input.title || "Requirement Ambiguity Analysis",
+    `21CSC403T Virtual Lab - Exercise 7 Report  |  Generated ${date}`,
+  );
+
+  studentBlock(pdf, {
+    names: input.names,
+    regs: input.regs,
+    title: input.title || "Requirement Ambiguity Analysis",
+  });
+  if (input.origin) pdf.field("Origin", `${input.origin}${input.github ? ` (${input.github})` : ""}`);
+  if (input.description) pdf.field("Description", input.description);
+  pdf.y += 6;
+
+  pdf.heading("2. Issue Distribution");
+  pdf.table(
+    ["Issue tag", "Requirements"],
+    input.issueCounts.map((r) => [ascii(r.tag), String(r.count)]),
+  );
+
+  pdf.heading("3. Requirement Review Table");
+  pdf.table(
+    ["#", "Requirement", "Tags"],
+    input.requirements.map((r) => [
+      String(r.id),
+      ascii(r.statement),
+      ascii(r.issues.join(", ")),
+    ]),
+    0,
+  );
+
+  pdf.heading("4. Conclusion");
+  pdf.body(input.conclusion);
+
+  pdf.footerAndSave("21csc403t-exercise7-requirement-ambiguity.pdf");
 }
 

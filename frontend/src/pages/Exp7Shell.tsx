@@ -12,13 +12,13 @@
 
 import { useState } from "react";
 import {
-  Activity,
   BookOpen,
   Check,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
   ClipboardPen,
+  Download,
   Eye,
   FileSearch,
   FileText,
@@ -27,10 +27,32 @@ import {
   Target,
   X,
 } from "lucide-react";
-import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
+import {
+  LabCard,
+  LabFormula,
+  LabInfoBox,
+  LabKpiCard,
+  LabStepList,
+  LabThresholds,
+} from "@/components/lab/LabCard";
+import {
+  ReportDownloadBar,
+  ReportStudentFields,
+  type ReportStudentForm,
+} from "@/components/lab/ReportForm";
 import { cn } from "@/lib/utils";
+
+const OPTION_IDLE =
+  "border-slate-200 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50";
+const OPTION_SELECTED = "border-blue-500 bg-blue-50 text-blue-800";
+const OPTION_CORRECT = "border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold";
+const OPTION_INCORRECT = "border-red-400 bg-red-50 text-red-700";
+const OPTION_MUTED = "border-slate-100 bg-slate-50 text-slate-400";
+const FIELD_CLASS =
+  "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60";
 
 // ─── Section IDs ─────────────────────────────────────────────────────────────
 type Exp7Section =
@@ -256,24 +278,100 @@ const ISSUE_BADGE_VARIANT: Record<IssueTag, "warn" | "crit" | "ok" | "default"> 
 
 const ALL_TAGS: IssueTag[] = ["Ambiguous", "Incomplete", "Conflicting", "Vague"];
 
-// ─── Prose card ───────────────────────────────────────────────────────────────
-function TheoryCard({ section }: { section: Exp7Section }) {
+const SECTION_ICONS: Record<Exp7Section, typeof Target> = {
+  aim: Target,
+  objective: Lightbulb,
+  theory: BookOpen,
+  procedure: ClipboardList,
+  selfreview: Eye,
+  table: FileSearch,
+  exercise: ClipboardPen,
+  conclusion: FileText,
+};
+
+function ProseCard({ section }: { section: Exp7Section }) {
   const copy = COPY[section];
   if (!copy.body.length) return null;
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-lg">
-          <Activity className="h-5 w-5 text-primary" />
-          {copy.title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="max-w-4xl space-y-3 text-sm leading-relaxed text-muted-foreground">
+    <LabCard title={copy.title} icon={SECTION_ICONS[section]}>
+      <div className="max-w-4xl space-y-3 text-sm leading-relaxed text-slate-600">
         {copy.body.map((p) => (
           <p key={p.slice(0, 48)}>{p}</p>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </LabCard>
+  );
+}
+
+function TheoryPanel() {
+  return (
+    <div className="space-y-4">
+      <ProseCard section="theory" />
+      <LabCard title="Well-formed requirement (IEEE 830 / IEEE 29148)" icon={BookOpen}>
+        <LabFormula>
+          Well-formed = correct, unambiguous, complete, consistent, ranked, verifiable, modifiable, and traceable
+        </LabFormula>
+        <div className="mt-3">
+          <LabThresholds
+            caption="Quality defects classified in this experiment:"
+            rows={[
+              { range: "Ambiguous", label: "Multiple valid interpretations", color: "bg-amber-100 text-amber-800" },
+              { range: "Incomplete", label: "Missing preconditions / actors / error paths", color: "bg-slate-100 text-slate-700" },
+              { range: "Conflicting", label: "Contradicts another requirement", color: "bg-rose-100 text-rose-800" },
+              { range: "Vague", label: "Unverifiable / unmeasurable language", color: "bg-emerald-100 text-emerald-800" },
+            ]}
+          />
+        </div>
+      </LabCard>
+      <div className="grid gap-4 md:grid-cols-2">
+        <LabCard title="Ambiguous">
+          <LabFormula>A natural-language statement admits two or more valid interpretations</LabFormula>
+          <div className="mt-3">
+            <LabThresholds
+              rows={[
+                { range: "Pronouns", label: "Unclear actor / reference", color: "bg-amber-100 text-amber-800" },
+                { range: "Quantifiers", label: "e.g. quickly, large", color: "bg-amber-50 text-amber-800" },
+                { range: "Domain terms", label: "Overloaded vocabulary", color: "bg-slate-100 text-slate-700" },
+              ]}
+            />
+          </div>
+        </LabCard>
+        <LabCard title="Incomplete">
+          <LabFormula>Omits preconditions, postconditions, error-handling, actors, or boundary conditions</LabFormula>
+          <div className="mt-3">
+            <LabThresholds
+              rows={[
+                { range: "Actors", label: "Role not identified", color: "bg-slate-100 text-slate-700" },
+                { range: "Error paths", label: "Exceptions unspecified", color: "bg-blue-100 text-blue-800" },
+                { range: "Boundaries", label: "Limits omitted", color: "bg-blue-50 text-blue-800" },
+              ]}
+            />
+          </div>
+        </LabCard>
+        <LabCard title="Conflicting">
+          <LabFormula>Two or more statements that cannot simultaneously be satisfied</LabFormula>
+          <div className="mt-3">
+            <LabThresholds
+              rows={[
+                { range: "Direct", label: "Contradictory functional rules", color: "bg-rose-100 text-rose-800" },
+                { range: "Indirect", label: "NFR makes a function infeasible", color: "bg-rose-50 text-rose-800" },
+              ]}
+            />
+          </div>
+        </LabCard>
+        <LabCard title="Vague">
+          <LabFormula>Words such as appropriate, adequate, reasonable, fast, secure resist objective verification</LabFormula>
+          <div className="mt-3">
+            <LabThresholds
+              rows={[
+                { range: "Unmeasurable", label: "No acceptance criteria", color: "bg-emerald-100 text-emerald-800" },
+                { range: "Subjective", label: "Replace with measurable criteria", color: "bg-emerald-50 text-emerald-800" },
+              ]}
+            />
+          </div>
+        </LabCard>
+      </div>
+    </div>
   );
 }
 
@@ -319,50 +417,46 @@ function SelfReviewPanel() {
 
   return (
     <div className="space-y-4">
-      {/* Progress */}
-      <Card>
-        <CardContent className="flex items-center gap-4 py-3">
-          <div className="text-center">
-            <div className="font-mono text-xl font-bold text-primary">{completedCount}/{REQUIREMENTS.length}</div>
-            <div className="text-[10px] text-muted-foreground">Reviewed</div>
+      <LabCard title="Self-Review Mode" icon={Eye}>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="sm:w-40">
+            <LabKpiCard
+              label="Reviewed"
+              value={`${completedCount}/${REQUIREMENTS.length}`}
+              sub={`Req ${index + 1} of ${REQUIREMENTS.length}`}
+              color="blue"
+            />
           </div>
-          <div className="flex-1 overflow-hidden rounded-full bg-muted h-2">
-            <div className="h-2 rounded-full bg-primary transition-all" style={{ width: `${(completedCount / REQUIREMENTS.length) * 100}%` }} />
-          </div>
-          <div className="text-xs text-muted-foreground">Req {index + 1} of {REQUIREMENTS.length}</div>
-        </CardContent>
-      </Card>
-
-      {/* Requirement card */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-primary">
-                Requirement {req.id}
-              </span>
-              <p className="mt-1 text-sm font-medium leading-relaxed text-foreground">{req.statement}</p>
+          <div className="flex-1">
+            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
+              <div
+                className="h-2 rounded-full bg-blue-600 transition-all"
+                style={{ width: `${(completedCount / REQUIREMENTS.length) * 100}%` }}
+              />
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Step 1 — classify */}
+        </div>
+      </LabCard>
+
+      <LabCard title={`Requirement ${req.id}`}>
+        <p className="text-sm font-medium leading-relaxed text-slate-800">{req.statement}</p>
+        <div className="mt-4 space-y-4">
           <div>
-            <p className="mb-2 text-xs font-semibold text-foreground">
+            <p className="mb-2 text-xs font-semibold text-slate-800">
               Step 1 — Select all issue tags that apply to this requirement:
             </p>
             <div className="flex flex-wrap gap-2">
               {ALL_TAGS.map((tag) => {
                 const result = tagResult(tag);
-                let cls = "border border-border bg-white text-muted-foreground hover:bg-muted/50";
+                let cls = OPTION_IDLE;
                 if (!isRevealed && tags.has(tag)) {
-                  cls = "border-2 border-primary bg-primary/10 text-primary font-semibold";
+                  cls = OPTION_SELECTED;
                 } else if (result === "correct") {
-                  cls = "border-2 border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold";
+                  cls = OPTION_CORRECT;
                 } else if (result === "missed") {
-                  cls = "border-2 border-amber-400 bg-amber-50 text-amber-800 font-semibold";
+                  cls = "border-amber-400 bg-amber-50 text-amber-800 font-semibold";
                 } else if (result === "wrong") {
-                  cls = "border-2 border-red-400 bg-red-50 text-red-700";
+                  cls = OPTION_INCORRECT;
                 }
                 return (
                   <button
@@ -370,27 +464,32 @@ function SelfReviewPanel() {
                     type="button"
                     disabled={isRevealed}
                     onClick={() => toggleTag(tag)}
-                    className={cn("rounded-md px-3 py-1.5 text-xs transition-all", cls)}
+                    className={cn("rounded-lg border px-3 py-1.5 text-xs transition-all", cls)}
                   >
                     {isRevealed && result === "correct" && <Check className="mr-1 inline h-3 w-3" />}
-                    {isRevealed && result === "wrong"   && <X className="mr-1 inline h-3 w-3" />}
+                    {isRevealed && result === "wrong" && <X className="mr-1 inline h-3 w-3" />}
                     {tag}
                   </button>
                 );
               })}
             </div>
             {isRevealed && (
-              <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                <span className="flex items-center gap-1 text-emerald-700"><span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" /> Correct pick</span>
-                <span className="flex items-center gap-1 text-amber-700"><span className="h-2 w-2 rounded-full bg-amber-400 inline-block" /> Missed</span>
-                <span className="flex items-center gap-1 text-red-700"><span className="h-2 w-2 rounded-full bg-red-400 inline-block" /> Incorrect pick</span>
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
+                <span className="flex items-center gap-1 text-emerald-700">
+                  <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" /> Correct pick
+                </span>
+                <span className="flex items-center gap-1 text-amber-700">
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-400" /> Missed
+                </span>
+                <span className="flex items-center gap-1 text-red-700">
+                  <span className="inline-block h-2 w-2 rounded-full bg-red-400" /> Incorrect pick
+                </span>
               </div>
             )}
           </div>
 
-          {/* Step 2 — write clarification */}
           <div>
-            <label htmlFor={`note-${id}`} className="mb-1.5 block text-xs font-semibold text-foreground">
+            <label htmlFor={`note-${id}`} className="mb-1.5 block text-xs font-semibold text-slate-800">
               Step 2 — Briefly describe the clarification required for this requirement:
             </label>
             <textarea
@@ -400,41 +499,42 @@ function SelfReviewPanel() {
               onChange={(e) => setUserNote((n) => ({ ...n, [id]: e.target.value }))}
               disabled={isRevealed}
               placeholder="Write your clarification here in formal, third-person wording…"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+              className={FIELD_CLASS}
             />
           </div>
 
-          {/* Reveal button */}
           {!isRevealed && (
             <Button size="sm" onClick={reveal} disabled={tags.size === 0}>
               Reveal Reference Answer
             </Button>
           )}
 
-          {/* Reference answer */}
           {isRevealed && (
-            <div className="space-y-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
-              <p className="text-xs font-semibold text-primary">Reference Answer</p>
+            <div className="space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+              <p className="text-xs font-semibold text-blue-800">Reference Answer</p>
               <div>
-                <p className="text-[11px] font-semibold text-foreground mb-1">Correct issue tags:</p>
+                <p className="mb-1 text-[11px] font-semibold text-slate-800">Correct issue tags:</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {req.issues.map((t) => <Badge key={t} variant={ISSUE_BADGE_VARIANT[t]}>{t}</Badge>)}
+                  {req.issues.map((t) => (
+                    <Badge key={t} variant={ISSUE_BADGE_VARIANT[t]}>
+                      {t}
+                    </Badge>
+                  ))}
                 </div>
               </div>
               <div>
-                <p className="text-[11px] font-semibold text-foreground mb-1">Identified ambiguity / issue:</p>
-                <p className="text-[11px] leading-relaxed text-muted-foreground">{req.ambiguity}</p>
+                <p className="mb-1 text-[11px] font-semibold text-slate-800">Identified ambiguity / issue:</p>
+                <p className="text-[11px] leading-relaxed text-slate-600">{req.ambiguity}</p>
               </div>
               <div>
-                <p className="text-[11px] font-semibold text-foreground mb-1">Clarification required:</p>
-                <p className="text-[11px] leading-relaxed text-muted-foreground">{req.clarification}</p>
+                <p className="mb-1 text-[11px] font-semibold text-slate-800">Clarification required:</p>
+                <p className="text-[11px] leading-relaxed text-slate-600">{req.clarification}</p>
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </LabCard>
 
-      {/* Navigation */}
       <div className="flex items-center justify-between">
         <Button variant="outline" size="sm" disabled={index === 0} onClick={() => setIndex((i) => i - 1)}>
           <ChevronLeft className="h-4 w-4" /> Previous
@@ -445,8 +545,13 @@ function SelfReviewPanel() {
               key={i}
               type="button"
               onClick={() => setIndex(i)}
-              className={cn("h-2 rounded-full transition-all",
-                i === index ? "w-6 bg-primary" : revealed[REQUIREMENTS[i].id] ? "w-2 bg-emerald-400" : "w-2 bg-muted-foreground/30"
+              className={cn(
+                "h-2 rounded-full transition-all",
+                i === index
+                  ? "w-6 bg-blue-600"
+                  : revealed[REQUIREMENTS[i].id]
+                    ? "w-2 bg-emerald-400"
+                    : "w-2 bg-slate-300",
               )}
             />
           ))}
@@ -477,52 +582,69 @@ function AnalysisTable() {
 
   return (
     <div className="space-y-4">
-      {/* Stats strip */}
+      <LabCard title="Analysis Table" icon={FileSearch}>
+        <p className="max-w-3xl text-sm leading-relaxed text-slate-600">
+          The table below presents the 20 requirements for the student-attendance management
+          application. Fill in the <strong className="text-slate-800">Identified Ambiguity</strong> and{" "}
+          <strong className="text-slate-800">Clarification Required</strong> columns yourself, then click{" "}
+          <strong className="text-slate-800">Show Reference</strong> to compare with the model answer.
+        </p>
+      </LabCard>
+
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {counts.map(({ tag, count }) => (
-          <div key={tag} className="rounded-lg border border-border bg-card p-3 text-center">
-            <div className="font-mono text-2xl font-bold text-foreground">{count}</div>
-            <div className="mt-0.5"><Badge variant={ISSUE_BADGE_VARIANT[tag]}>{tag}</Badge></div>
-          </div>
+          <LabKpiCard
+            key={tag}
+            label={tag}
+            value={count}
+            color={tag === "Ambiguous" ? "amber" : tag === "Incomplete" ? "blue" : tag === "Conflicting" ? "red" : "green"}
+          />
         ))}
       </div>
 
-      {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
-        {FILTER_OPTIONS.map((opt) => (
-          <Button key={opt} id={`filter-${opt.toLowerCase()}`} size="sm"
-            variant={activeFilter === opt ? "default" : "outline"} onClick={() => setActiveFilter(opt)}>
-            {opt}
-            {opt !== "All" && (
-              <span className="ml-1 rounded-full bg-white/20 px-1.5 text-[10px]">
-                {REQUIREMENTS.filter((r) => r.issues.includes(opt as IssueTag)).length}
-              </span>
-            )}
-          </Button>
-        ))}
-        <span className="ml-auto text-xs text-muted-foreground">
-          {visible.length} of {REQUIREMENTS.length} requirements
-        </span>
-      </div>
+      <LabCard padded={false}>
+        <div className="flex flex-wrap items-center gap-2 px-5 py-3">
+          <Filter className="h-4 w-4 shrink-0 text-slate-500" />
+          {FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt}
+              id={`filter-${opt.toLowerCase()}`}
+              type="button"
+              onClick={() => setActiveFilter(opt)}
+              className={cn(
+                "rounded-lg border px-3 py-1.5 text-xs font-medium transition-all",
+                activeFilter === opt ? OPTION_SELECTED : OPTION_IDLE,
+              )}
+            >
+              {opt}
+              {opt !== "All" && (
+                <span className="ml-1 rounded-full bg-blue-100 px-1.5 text-[10px] text-blue-700">
+                  {REQUIREMENTS.filter((r) => r.issues.includes(opt as IssueTag)).length}
+                </span>
+              )}
+            </button>
+          ))}
+          <span className="ml-auto text-xs text-slate-500">
+            {visible.length} of {REQUIREMENTS.length} requirements
+          </span>
+        </div>
+      </LabCard>
 
-      {/* Instruction banner */}
-      <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs text-blue-800">
-        <strong>Your task:</strong> Fill in the <em>Identified Ambiguity</em> and <em>Clarification Required</em> columns
+      <LabInfoBox title="Your task">
+        Fill in the <em>Identified Ambiguity</em> and <em>Clarification Required</em> columns
         using formal third-person / passive wording. Click <strong>Show Reference</strong> on any row to compare with the model answer.
-      </div>
+      </LabInfoBox>
 
-      {/* Table */}
-      <Card className="overflow-hidden">
+      <LabCard padded={false} className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-muted/40 text-muted-foreground">
+            <thead className="bg-slate-50 text-slate-600">
               <tr>
                 <th className="w-10 px-4 py-3 font-semibold">#</th>
                 <th className="min-w-[200px] px-4 py-3 font-semibold">Requirement Statement</th>
                 <th className="w-28 px-4 py-3 font-semibold">Tags</th>
-                <th className="min-w-[220px] px-4 py-3 font-semibold">Identified Ambiguity or Issue <span className="text-primary">(your answer)</span></th>
-                <th className="min-w-[220px] px-4 py-3 font-semibold">Clarification Required <span className="text-primary">(your answer)</span></th>
+                <th className="min-w-[220px] px-4 py-3 font-semibold">Identified Ambiguity or Issue <span className="text-blue-600">(your answer)</span></th>
+                <th className="min-w-[220px] px-4 py-3 font-semibold">Clarification Required <span className="text-blue-600">(your answer)</span></th>
                 <th className="w-28 px-4 py-3 font-semibold">Reference</th>
               </tr>
             </thead>
@@ -532,13 +654,13 @@ function AnalysisTable() {
                 const refShown = !!showRef[req.id];
                 return (
                   <>
-                    <tr key={req.id} className="border-t border-border align-top hover:bg-secondary/30">
+                    <tr key={req.id} className="border-t border-slate-200 align-top hover:bg-slate-50">
                       <td className="px-4 py-3">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 font-mono text-[11px] font-bold text-primary">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-50 font-mono text-[11px] font-bold text-blue-700">
                           {req.id}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-[12px] leading-relaxed text-foreground">{req.statement}</td>
+                      <td className="px-4 py-3 text-[12px] leading-relaxed text-slate-800">{req.statement}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
                           {req.issues.map((tag) => (
@@ -552,7 +674,7 @@ function AnalysisTable() {
                           value={edit.ambiguity}
                           onChange={(e) => setEdits((prev) => ({ ...prev, [req.id]: { ...edit, ambiguity: e.target.value } }))}
                           placeholder="Describe the ambiguity or issue…"
-                          className="w-full rounded border border-border bg-background px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"
+                          className={FIELD_CLASS}
                         />
                       </td>
                       <td className="px-4 py-3">
@@ -561,7 +683,7 @@ function AnalysisTable() {
                           value={edit.clarification}
                           onChange={(e) => setEdits((prev) => ({ ...prev, [req.id]: { ...edit, clarification: e.target.value } }))}
                           placeholder="State the clarification needed…"
-                          className="w-full rounded border border-border bg-background px-2 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-ring"
+                          className={FIELD_CLASS}
                         />
                       </td>
                       <td className="px-4 py-3">
@@ -573,11 +695,11 @@ function AnalysisTable() {
                       </td>
                     </tr>
                     {refShown && (
-                      <tr key={`ref-${req.id}`} className="border-t border-primary/20 bg-primary/5">
-                        <td colSpan={2} className="px-4 py-2.5 text-[11px] font-semibold text-primary">Reference answer (R-{req.id})</td>
+                      <tr key={`ref-${req.id}`} className="border-t border-blue-100 bg-blue-50">
+                        <td colSpan={2} className="px-4 py-2.5 text-[11px] font-semibold text-blue-700">Reference answer (R-{req.id})</td>
                         <td />
-                        <td className="px-4 py-2.5 text-[11px] leading-relaxed text-muted-foreground">{req.ambiguity}</td>
-                        <td className="px-4 py-2.5 text-[11px] leading-relaxed text-muted-foreground">{req.clarification}</td>
+                        <td className="px-4 py-2.5 text-[11px] leading-relaxed text-slate-600">{req.ambiguity}</td>
+                        <td className="px-4 py-2.5 text-[11px] leading-relaxed text-slate-600">{req.clarification}</td>
                         <td />
                       </tr>
                     )}
@@ -587,11 +709,10 @@ function AnalysisTable() {
             </tbody>
           </table>
         </div>
-      </Card>
+      </LabCard>
 
-      {/* Legend */}
-      <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-        <span className="font-semibold text-foreground">Legend:</span>
+      <div className="flex flex-wrap gap-3 text-[11px] text-slate-500">
+        <span className="font-semibold text-slate-800">Legend:</span>
         {(["Ambiguous", "Incomplete", "Conflicting", "Vague"] as IssueTag[]).map((tag) => (
           <span key={tag} className="flex items-center gap-1">
             <Badge variant={ISSUE_BADGE_VARIANT[tag]}>{tag}</Badge>
@@ -684,17 +805,11 @@ function ExercisePanel() {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Activity className="h-5 w-5 text-primary" />
-            Exercise Questions
-          </CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Q1–Q3 are multiple-choice and auto-scored. Q4–Q6 are short-answer — write your response and compare with the model answer.
-          </p>
-        </CardHeader>
-      </Card>
+      <LabCard title="Exercise Questions" icon={ClipboardPen}>
+        <p className="text-xs text-slate-500">
+          Q1–Q3 are multiple-choice and auto-scored. Q4–Q6 are short-answer — write your response and compare with the model answer.
+        </p>
+      </LabCard>
 
       {EXQ.map((q) => {
         const ua = answers[q.id] ?? "";
@@ -703,26 +818,24 @@ function ExercisePanel() {
         const mShown = !!modelShown[q.id];
 
         return (
-          <Card key={q.id}>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold text-foreground">Q{q.id}. {q.text}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
+          <LabCard key={q.id} title={`Q${q.id}. ${q.text}`}>
+            <div className="space-y-3">
               {q.type === "mcq" && q.options && (
                 <div className="space-y-2">
-                  {q.options.map((opt) => {
-                    let cls = "border border-border bg-white text-muted-foreground hover:bg-muted/50";
+                  {q.options.map((opt, i) => {
+                    let cls = OPTION_IDLE;
                     if (subm) {
-                      if (opt === q.answer) cls = "border-2 border-emerald-500 bg-emerald-50 text-emerald-800 font-medium";
-                      else if (opt === ua) cls = "border-2 border-red-400 bg-red-50 text-red-700";
-                      else cls = "border border-border bg-white text-muted-foreground opacity-50";
+                      if (opt === q.answer) cls = OPTION_CORRECT;
+                      else if (opt === ua) cls = OPTION_INCORRECT;
+                      else cls = OPTION_MUTED;
                     } else if (ua === opt) {
-                      cls = "border-2 border-primary bg-primary/10 text-primary font-medium";
+                      cls = OPTION_SELECTED;
                     }
                     return (
                       <button key={opt} type="button" disabled={subm}
                         onClick={() => setAnswers((a) => ({ ...a, [q.id]: opt }))}
-                        className={cn("block w-full rounded-md px-4 py-2.5 text-left text-xs transition-all", cls)}>
+                        className={cn("block w-full rounded-lg border px-4 py-3 text-left text-sm transition-all", cls)}>
+                        <span className="mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>
                         {opt}
                       </button>
                     );
@@ -733,8 +846,10 @@ function ExercisePanel() {
                     </Button>
                   )}
                   {subm && (
-                    <div className={cn("flex items-start gap-2 rounded-md px-3 py-2 text-xs",
-                      isRight ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700")}>
+                    <div className={cn(
+                      "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs",
+                      isRight ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700",
+                    )}>
                       {isRight ? <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <X className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
                       <div><strong>{isRight ? "Correct!" : "Incorrect."}</strong> {q.explanation}</div>
                     </div>
@@ -747,40 +862,119 @@ function ExercisePanel() {
                   <textarea rows={4} value={ua}
                     onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
                     placeholder="Write your answer here using formal, third-person academic wording…"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    className={FIELD_CLASS}
                   />
                   <Button size="sm" disabled={!ua} onClick={() => setModelShown((m) => ({ ...m, [q.id]: true }))}>
                     Show Model Answer
                   </Button>
                   {mShown && (
-                    <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-xs leading-relaxed text-foreground">
-                      <p className="mb-1 font-semibold text-primary">Model Answer</p>
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-slate-800">
+                      <p className="mb-1 font-semibold text-blue-800">Model Answer</p>
                       {q.answer}
                     </div>
                   )}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </LabCard>
         );
       })}
 
-      {/* MCQ Score */}
       {allMcqDone && (
-        <Card>
-          <CardContent className="flex items-center gap-4 py-4">
-            <div className="text-center">
-              <div className="font-mono text-3xl font-bold text-primary">{mcqCorrect}/{mcqTotal}</div>
-              <div className="text-xs text-muted-foreground">MCQ Score</div>
+        <LabCard title="MCQ Score">
+          <div className="flex items-center gap-4">
+            <div className="w-36">
+              <LabKpiCard
+                label="MCQ Score"
+                value={`${mcqCorrect}/${mcqTotal}`}
+                color={mcqCorrect === mcqTotal ? "green" : "amber"}
+              />
             </div>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-600">
               {mcqCorrect === mcqTotal
                 ? "Full marks on all multiple-choice questions. Excellent work!"
                 : "Review the highlighted questions and the Theory section for clarification."}
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        </LabCard>
       )}
+    </div>
+  );
+}
+
+function ConclusionPanel() {
+  const [student, setStudent] = useState<ReportStudentForm>({
+    names: "",
+    regs: "",
+    title: "Requirement Ambiguity Analysis",
+    origin: "sample",
+    github: "",
+    description: "Requirement review completed in 21CSC403T Virtual Lab Exercise 7.",
+  });
+  const [exporting, setExporting] = useState(false);
+  const canDownload = student.names.trim().length > 0 && student.regs.trim().length > 0;
+  const issueCounts = (["Ambiguous", "Incomplete", "Conflicting", "Vague"] as IssueTag[]).map((tag) => ({
+    tag,
+    count: REQUIREMENTS.filter((r) => r.issues.includes(tag)).length,
+  }));
+
+  async function handleDownload() {
+    if (!canDownload) return;
+    setExporting(true);
+    try {
+      const { downloadExp7Pdf } = await import("@/lib/reportPdf");
+      await downloadExp7Pdf({
+        names: student.names,
+        regs: student.regs,
+        title: student.title,
+        origin: student.origin,
+        github: student.github,
+        description: student.description,
+        conclusion: COPY.conclusion.body.join(" "),
+        issueCounts,
+        requirements: REQUIREMENTS.map((r) => ({
+          id: r.id,
+          statement: r.statement,
+          issues: r.issues,
+        })),
+      });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <LabCard title="Conclusion" icon={FileText}>
+        <div className="max-w-4xl space-y-3 text-sm leading-relaxed text-slate-600">
+          {COPY.conclusion.body.map((p) => (
+            <p key={p.slice(0, 48)}>{p}</p>
+          ))}
+        </div>
+      </LabCard>
+      <LabCard title="Generate Lab Report" icon={Download}>
+        <ReportDownloadBar
+          buttonId="exp7-download-report"
+          disabled={!canDownload}
+          exporting={exporting}
+          onDownload={() => void handleDownload()}
+          hint={
+            canDownload
+              ? "The PDF includes issue-tag counts, the 20-requirement review table, and the lab conclusion."
+              : "Enter name(s) and registration number(s) to download the PDF."
+          }
+        />
+        <ReportStudentFields
+          form={student}
+          onChange={(key, value) => setStudent((f) => ({ ...f, [key]: value }))}
+          originOptions={[
+            { value: "sample", label: "Lab sample requirements" },
+            { value: "own", label: "Own project" },
+            { value: "github", label: "GitHub project" },
+          ]}
+          footnote="Requirement ambiguity analysis (Exercise 7)."
+        />
+      </LabCard>
     </div>
   );
 }
@@ -790,28 +984,30 @@ export function Exp7Shell() {
   const [section, setSection] = useState<Exp7Section>("aim");
 
   function renderBody() {
+    if (section === "aim") return <ProseCard section="aim" />;
+    if (section === "objective") {
+      return (
+        <LabCard title={COPY.objective.title} icon={Lightbulb}>
+          <LabStepList items={COPY.objective.body} variant="objective" />
+        </LabCard>
+      );
+    }
+    if (section === "theory") return <TheoryPanel />;
+    if (section === "procedure") {
+      return (
+        <LabCard title={COPY.procedure.title} icon={ClipboardList}>
+          <div className="max-w-4xl space-y-3 text-sm leading-relaxed text-slate-600">
+            {COPY.procedure.body.map((p) => (
+              <p key={p.slice(0, 48)}>{p}</p>
+            ))}
+          </div>
+        </LabCard>
+      );
+    }
     if (section === "selfreview") return <SelfReviewPanel />;
-    if (section === "table")      return (
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Activity className="h-5 w-5 text-primary" />
-              Analysis Table
-            </CardTitle>
-            <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
-              The table below presents the 20 requirements for the student-attendance management
-              application. Fill in the <strong>Identified Ambiguity</strong> and{" "}
-              <strong>Clarification Required</strong> columns yourself, then click{" "}
-              <strong>Show Reference</strong> to compare with the model answer.
-            </p>
-          </CardHeader>
-        </Card>
-        <AnalysisTable />
-      </div>
-    );
-    if (section === "exercise")   return <ExercisePanel />;
-    return <TheoryCard section={section} />;
+    if (section === "table") return <AnalysisTable />;
+    if (section === "exercise") return <ExercisePanel />;
+    return <ConclusionPanel />;
   }
 
   return (

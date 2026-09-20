@@ -228,7 +228,7 @@ export function HomePage() {
             transition={{ duration: 0.6, delay: 0.2 }}
           >
             Interactive labs for size, complexity, object-oriented quality, testing, and process
-            measurement — with live workbenches for experiments 1, 4, and 5.
+            measurement — with live workbenches for experiments 1 through 7.
           </motion.p>
           <motion.div
             className="flex flex-col items-center justify-center gap-4 sm:flex-row"
@@ -290,7 +290,7 @@ export function HomePage() {
               Hands-on learning
             </motion.h2>
             <motion.p variants={itemVariants} className="mx-auto max-w-2xl text-muted-foreground">
-              Ten experiments mapped to the course. Experiments 1, 4, and 5 are live; the rest open a
+              Ten experiments mapped to the course. Experiments 1 through 7 are live; 8–10 open a
               Coming Soon page until they are built.
             </motion.p>
           </div>
