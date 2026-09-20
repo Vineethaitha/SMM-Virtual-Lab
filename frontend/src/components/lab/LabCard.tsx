@@ -92,7 +92,10 @@ export function LabInfoBox({ children }: { children: ReactNode }) {
   return (
     <div className="flex gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
       <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-blue-500" />
-      <div>{children}</div>
+      <div>
+        {title && <div className="font-semibold text-blue-900 mb-1">{title}</div>}
+        <div>{children}</div>
+      </div>
     </div>
   );
 }

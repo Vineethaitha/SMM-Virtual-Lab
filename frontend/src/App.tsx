@@ -5,6 +5,8 @@ import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { HomePage } from "@/pages/HomePage";
 import { CustomerSatisfactionPage } from "@/pages/CustomerSatisfactionPage";
 import { ObjectOrientedMetricsPage } from "@/pages/ObjectOrientedMetricsPage";
+import { TestCaseManagementPage } from "@/pages/TestCaseManagementPage";
+import { SoftwareSizeEstimationPage } from "@/pages/SoftwareSizeEstimationPage";
 import { getExperiment } from "@/data/experiments";
 
 function LabRoute() {
@@ -21,6 +23,10 @@ function ExperimentGate() {
   const exp = getExperiment(expId);
   if (!exp) return <Navigate to="/" replace />;
   if (!exp.implemented) return <ComingSoonPage />;
+  // Experiment 2 has its own dedicated page
+  if (expId === 2) return <TestCaseManagementPage />;
+  // Experiment 3 has its own dedicated page
+  if (expId === 3) return <SoftwareSizeEstimationPage />;
   // Experiment 4 has its own dedicated page
   if (expId === 4) return <CustomerSatisfactionPage />;
   // Experiment 5 has its own dedicated page
