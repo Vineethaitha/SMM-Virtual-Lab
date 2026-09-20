@@ -60,7 +60,7 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Capture WMC, DIT, NOC, CBO, RFC, and LCOM (or SonarCloud OO metrics) on a real project and interpret the results.",
     icon: "Network",
-    implemented: false,
+    implemented: true,
   },
   {
     id: 7,
@@ -69,7 +69,7 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Review requirements for ambiguity and incompleteness, then write clarification comments in a structured review table.",
     icon: "FileSearch",
-    implemented: false,
+    implemented: true,
   },
   {
     id: 8,
