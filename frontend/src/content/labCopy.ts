@@ -5,8 +5,8 @@ export const NAV: { id: LabSection; label: string }[] = [
   { id: "objective", label: "Objective" },
   { id: "theory", label: "Theory" },
   { id: "procedure", label: "Procedure" },
-  { id: "exercise", label: "Exercise" },
   { id: "simulation", label: "Simulation" },
+  { id: "exercise", label: "Exercise" },
   { id: "results", label: "Results" },
   { id: "analysis", label: "Analysis" },
   { id: "comparison", label: "Comparison" },
@@ -17,7 +17,7 @@ export const COPY: Record<LabSection, { title: string; body: ReactNodeLike }> = 
   aim: {
     title: "Aim",
     body: [
-      "Measure software size and structural complexity of Python source using static analysis (Radon).",
+      "Measure software size and structural complexity of Python source using static analysis in the browser.",
       "Learn how LOC, cyclomatic complexity, Halstead metrics, and the Maintainability Index describe quality — then improve a module and prove it with numbers.",
     ],
   },
@@ -33,9 +33,9 @@ export const COPY: Record<LabSection, { title: string; body: ReactNodeLike }> = 
     title: "Theory",
     body: [
       "LOC family: physical lines (LOC), source lines (SLOC), logical statements (LLOC). Size alone does not equal complexity.",
-      "McCabe cyclomatic complexity: M = E − N + 2P. Each independent path through a function needs at least one test. Radon ranks A (1–5) through F (41+).",
+      "McCabe cyclomatic complexity: M = E − N + 2P. Each independent path through a function needs at least one test. Ranks A (1–5) through F (41+).",
       "Halstead: operators η1, N1 and operands η2, N2. Volume V = N log₂(η), difficulty D = (η1/2)×(N2/η2), effort E = D×V. Nested predicates inflate operator counts.",
-      "Maintainability Index (Radon) blends volume, CC, SLOC, and comments onto a 0–100 scale. Higher MI is easier to maintain.",
+      "Maintainability Index blends volume, CC, and SLOC onto a 0–100 scale. Higher MI is easier to maintain.",
       "A control-flow graph (CFG) makes McCabe visual: ENTRY, statements, decisions (true/false), loops (back-edges), RETURN, EXIT.",
     ],
   },
@@ -43,8 +43,8 @@ export const COPY: Record<LabSection, { title: string; body: ReactNodeLike }> = 
     title: "Procedure",
     body: [
       "1. Open Simulation and load the sample (or paste your own Python). Code is never executed — only parsed.",
-      "2. Click Analyze Code. Watch the pipeline: Source → AST → Functions → LOC → Operators → Complexity → CFG → Metrics → Insights.",
-      "3. Inspect KPI cards, function table, and charts. Click a function to jump in the editor.",
+      "2. Click Analyze Code. Watch the pipeline, then stay on Simulation — the control-flow graph appears below the editor.",
+      "3. Open Results for KPI cards, function table, and charts. Click a function to jump in the editor.",
       "4. Open Simulation, select a function CFG, and Step / Play. At decisions choose true or false (graph walk, not a Python VM).",
       "5. Save Baseline. Refactor nested if/elif chains (guard clauses, helpers). Analyze Again.",
       "6. Compare BEFORE → AFTER percentages. Complete Exercise questions. Generate the report.",
@@ -63,7 +63,7 @@ export const COPY: Record<LabSection, { title: string; body: ReactNodeLike }> = 
   },
   results: {
     title: "Results",
-    body: ["Raw Radon metrics for the current editor buffer. These values are computed on the server, not hardcoded."],
+    body: ["Raw metrics for the current editor buffer. These values are computed in the browser, not hardcoded."],
   },
   analysis: {
     title: "Analysis",
@@ -79,7 +79,7 @@ export const COPY: Record<LabSection, { title: string; body: ReactNodeLike }> = 
     title: "Conclusion",
     body: [
       "Size, path count, and operator/operand effort are complementary views of quality.",
-      "Metrics guide refactoring: extract predicates, flatten nests, shrink vocabulary — then verify with a second Radon run.",
+      "Metrics guide refactoring: extract predicates, flatten nests, shrink vocabulary — then verify with a second analysis run.",
     ],
   },
 };

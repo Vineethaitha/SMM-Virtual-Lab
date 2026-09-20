@@ -43,6 +43,14 @@ import {
   calcMetrics,
   calcCompliance
 } from "@/data/exp3Data";
+import {
+  emptyBundle,
+  initGscRatings,
+  loadExp3State,
+  newId,
+  saveExp3State,
+} from "@/lib/exp3Store";
+import { downloadExp3Pdf } from "@/lib/reportPdf";
 
 type Exp3Tab = "aim" | "objective" | "theory" | "procedure" | "simulation" | "exercise" | "conclusion";
 
@@ -92,73 +100,58 @@ export function SoftwareSizeEstimationPage() {
   // Active Project Object
   const activeProject = projects.find((p) => p.id === activeProjectId) || null;
 
-  // Initial GSC state helper
-  const initGscRatingsForProject = (projId: string): GSCRatingItem[] => {
-    return GSC_LIST.map((g, idx) => ({
-      id: `gsc-${projId}-${idx}`,
-      project_id: projId,
-      characteristic_name: g.name,
-      rating: 0
-    }));
-  };
+  const [hydrated, setHydrated] = useState(false);
 
-  // --- LOAD FROM BACKEND OR FALLBACK ---
   useEffect(() => {
-    fetch("/api/v1/size/projects")
-      .then((res) => {
-        if (!res.ok) throw new Error("Backend offline");
-        return res.json();
-      })
-      .then((data: SizeProjectItem[]) => {
-        setProjects(data);
-        if (data.length > 0) {
-          setActiveProjectId(data[0].id);
-        }
-      })
-      .catch(() => {
-        setProjects([]);
-      });
+    const state = loadExp3State();
+    setProjects(state.projects);
+    if (state.projects.length > 0) {
+      const firstId = state.projects[0]!.id;
+      setActiveProjectId(firstId);
+      const bundle = state.byProject[firstId] ?? emptyBundle(firstId);
+      setComponents(bundle.components);
+      setGscRatings(bundle.gsc.length === 14 ? bundle.gsc : initGscRatings(firstId));
+      setSnapshots(bundle.snapshots);
+      if (bundle.student.name) setStudentInfo(bundle.student);
+    }
+    setHydrated(true);
   }, []);
 
-  // Sync components & GSCs when active project changes
   useEffect(() => {
-    if (!activeProjectId) {
-      setComponents([]);
-      setGscRatings([]);
-      setSnapshots([]);
-      return;
+    if (!hydrated) return;
+    const byProject = { ...loadExp3State().byProject };
+    for (const p of projects) {
+      if (!byProject[p.id]) byProject[p.id] = emptyBundle(p.id);
     }
+    if (activeProjectId) {
+      byProject[activeProjectId] = {
+        components,
+        gsc: gscRatings,
+        snapshots,
+        student: studentInfo,
+      };
+    }
+    saveExp3State({ projects, byProject });
+  }, [hydrated, projects, activeProjectId, components, gscRatings, snapshots, studentInfo]);
 
-    fetch(`/api/v1/size/projects/${activeProjectId}/components`)
-      .then((res) => res.json())
-      .then((data) => setComponents(data))
-      .catch(() => setComponents([]));
-
-    fetch(`/api/v1/size/projects/${activeProjectId}/gsc`)
-      .then((res) => res.json())
-      .then((data: GSCRatingItem[]) => {
-        if (data && data.length === 14) {
-          setGscRatings(data);
-        } else {
-          setGscRatings(initGscRatingsForProject(activeProjectId));
-        }
-      })
-      .catch(() => {
-        setGscRatings(initGscRatingsForProject(activeProjectId));
-      });
-
-    fetch(`/api/v1/size/projects/${activeProjectId}/compare`)
-      .then((res) => res.json())
-      .then((data) => setSnapshots(data))
-      .catch(() => setSnapshots([]));
-
-    fetch(`/api/v1/size/projects/${activeProjectId}/student-info`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.name) setStudentInfo(data);
-      })
-      .catch(() => {});
-  }, [activeProjectId]);
+  const selectProject = (id: string) => {
+    const state = loadExp3State();
+    if (activeProjectId) {
+      state.byProject[activeProjectId] = {
+        components,
+        gsc: gscRatings,
+        snapshots,
+        student: studentInfo,
+      };
+      saveExp3State({ projects, byProject: state.byProject });
+    }
+    setActiveProjectId(id);
+    const bundle = state.byProject[id] ?? emptyBundle(id);
+    setComponents(bundle.components);
+    setGscRatings(bundle.gsc.length === 14 ? bundle.gsc : initGscRatings(id));
+    setSnapshots(bundle.snapshots);
+    setStudentInfo(bundle.student);
+  };
 
   // --- ACTIONS ---
 
@@ -166,88 +159,42 @@ export function SoftwareSizeEstimationPage() {
     e.preventDefault();
     if (!newProjName.trim()) return;
 
-    const payload = {
+    const created: SizeProjectItem = {
+      id: newId("proj"),
       name: newProjName.trim(),
       description: newProjDesc.trim(),
       project_type: newProjType,
-      language: newProjLang
+      language: newProjLang,
+      created_at: new Date().toISOString(),
     };
-
-    fetch("/api/v1/size/projects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    })
-      .then((res) => res.json())
-      .then((created: SizeProjectItem) => {
-        setProjects((prev) => [...prev, created]);
-        setActiveProjectId(created.id);
-        setNewProjName("");
-        setNewProjDesc("");
-        setSimSubTab(1);
-      })
-      .catch(() => {
-        const localProj: SizeProjectItem = {
-          id: `local-proj-${Date.now()}`,
-          name: payload.name,
-          description: payload.description,
-          project_type: payload.project_type,
-          language: payload.language,
-          created_at: new Date().toISOString()
-        };
-        setProjects((prev) => [...prev, localProj]);
-        setActiveProjectId(localProj.id);
-        setGscRatings(initGscRatingsForProject(localProj.id));
-        setNewProjName("");
-        setNewProjDesc("");
-        setSimSubTab(1);
-      });
+    setProjects((prev) => [...prev, created]);
+    setActiveProjectId(created.id);
+    setComponents([]);
+    setGscRatings(initGscRatings(created.id));
+    setSnapshots([]);
+    setNewProjName("");
+    setNewProjDesc("");
+    setSimSubTab(1);
   };
 
   const handleAddComponent = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeProjectId || !compName.trim()) return;
 
-    const payload = {
+    const created: FPComponentItem = {
+      id: newId("comp"),
+      project_id: activeProjectId,
       name: compName.trim(),
       type: compType,
-      complexity: compComplexity
+      complexity: compComplexity,
     };
-
-    fetch(`/api/v1/size/projects/${activeProjectId}/components`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    })
-      .then((res) => res.json())
-      .then((created: FPComponentItem) => {
-        setComponents((prev) => [...prev, created]);
-        setCompName("");
-      })
-      .catch(() => {
-        const localComp: FPComponentItem = {
-          id: `comp-${Date.now()}`,
-          project_id: activeProjectId,
-          name: payload.name,
-          type: payload.type,
-          complexity: payload.complexity
-        };
-        setComponents((prev) => [...prev, localComp]);
-        setCompName("");
-      });
+    setComponents((prev) => [...prev, created]);
+    setCompName("");
   };
 
   const handleDeleteComponent = (comp_id: string) => {
     if (!activeProjectId) return;
-    fetch(`/api/v1/size/projects/${activeProjectId}/components/${comp_id}`, {
-      method: "DELETE"
-    })
-      .then(() => {
-        setComponents((prev) => prev.filter((c) => c.id !== comp_id));
-      })
-      .catch(() => {
-        setComponents((prev) => prev.filter((c) => c.id !== comp_id));
-      });
+    setComponents((prev) => prev.filter((c) => c.id !== comp_id));
   };
 
   const handleUpdateGscRating = (characteristic_name: string, rating: number) => {
@@ -268,69 +215,36 @@ export function SoftwareSizeEstimationPage() {
       });
     }
     setGscRatings(updated);
-
-    if (activeProjectId) {
-      const payload = {
-        ratings: updated.map((r) => ({
-          characteristic_name: r.characteristic_name,
-          rating: r.rating
-        }))
-      };
-      fetch(`/api/v1/size/projects/${activeProjectId}/gsc`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      }).catch(() => {});
-    }
   };
 
   const handleSaveSnapshot = () => {
     if (!activeProjectId || !activeProject) return;
     const label = `Snapshot ${snapshots.length + 1} (${new Date().toLocaleTimeString()})`;
 
-    fetch(`/api/v1/size/projects/${activeProjectId}/snapshot`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label })
-    })
-      .then((res) => res.json())
-      .then((snap: SizeSnapshotItem) => {
-        setSnapshots((prev) => [...prev, snap]);
-      })
-      .catch(() => {
-        const currentMetrics = calcMetrics(activeProject, components, gscRatings);
-        const localSnap: SizeSnapshotItem = {
-          id: `snap-${Date.now()}`,
-          project_id: activeProjectId,
-          label,
-          ufp: currentMetrics.ufp,
-          vaf: currentMetrics.vaf,
-          afp: currentMetrics.afp,
-          kloc: currentMetrics.kloc,
-          effort_pm: currentMetrics.cocomo.effort_pm,
-          time_months: currentMetrics.cocomo.time_months,
-          avg_team_size: currentMetrics.cocomo.avg_team_size,
-          created_at: new Date().toISOString()
-        };
-        setSnapshots((prev) => [...prev, localSnap]);
-      });
+    const currentMetrics = calcMetrics(activeProject, components, gscRatings);
+    const snap: SizeSnapshotItem = {
+      id: newId("snap"),
+      project_id: activeProjectId,
+      label,
+      ufp: currentMetrics.ufp,
+      vaf: currentMetrics.vaf,
+      afp: currentMetrics.afp,
+      kloc: currentMetrics.kloc,
+      effort_pm: currentMetrics.cocomo.effort_pm,
+      time_months: currentMetrics.cocomo.time_months,
+      avg_team_size: currentMetrics.cocomo.avg_team_size,
+      created_at: new Date().toISOString(),
+    };
+    setSnapshots((prev) => [...prev, snap]);
   };
 
   const handleResetProject = () => {
     if (!activeProjectId) return;
     if (!window.confirm("Are you sure you want to reset components and GSC ratings for this project?")) return;
 
-    fetch(`/api/v1/size/projects/${activeProjectId}/reset`, { method: "POST" })
-      .then(() => {
-        setComponents([]);
-        setGscRatings(initGscRatingsForProject(activeProjectId));
-        setSnapshots([]);
-      })
-      .catch(() => {
-        setComponents([]);
-        setGscRatings(initGscRatingsForProject(activeProjectId));
-        setSnapshots([]);
-      });
+    setComponents([]);
+    setGscRatings(initGscRatings(activeProjectId));
+    setSnapshots([]);
   };
 
   const handleQuizSubmit = (e: React.FormEvent) => {
@@ -716,7 +630,7 @@ export function SoftwareSizeEstimationPage() {
                           return (
                             <div
                               key={p.id}
-                              onClick={() => setActiveProjectId(p.id)}
+                              onClick={() => selectProject(p.id)}
                               className={`p-4 rounded-xl border cursor-pointer transition-all ${
                                 isSelected
                                   ? "bg-blue-50/80 border-blue-500 text-slate-900 shadow-sm"
@@ -1225,12 +1139,29 @@ export function SoftwareSizeEstimationPage() {
                   exporting={false}
                   onDownload={() => {
                     if (!activeProject) return;
-                    fetch(`/api/v1/size/projects/${activeProject.id}/student-info`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(studentInfo),
-                    }).catch(() => {});
-                    window.open(`/api/v1/size/projects/${activeProject.id}/report.pdf`, "_blank");
+                    const metrics = calcMetrics(activeProject, components, gscRatings);
+                    const compliance = calcCompliance(activeProject, components, gscRatings);
+                    const recs = Object.entries({
+                      component_coverage: compliance.component_coverage,
+                      complexity_assigned: compliance.complexity_assigned,
+                      gsc_completeness: compliance.gsc_completeness,
+                      project_type_missing: compliance.project_type_missing,
+                      language_missing: compliance.language_missing,
+                    })
+                      .filter(([, rule]) => !rule.passed)
+                      .map(([key]) => IMPROVEMENT_MAP[key] ?? key);
+                    void downloadExp3Pdf({
+                      names: studentInfo.name,
+                      regs: studentInfo.registration_number,
+                      project: activeProject,
+                      metrics,
+                      compliance,
+                      recommendations: recs.length
+                        ? recs
+                        : ["Estimation checklist is complete. Review snapshots and quiz feedback in the lab."],
+                      quizScore,
+                      quizTotal: QUIZ_BANK.length,
+                    });
                   }}
                   hint={
                     !activeProject

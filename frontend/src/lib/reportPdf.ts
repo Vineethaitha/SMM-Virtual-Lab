@@ -5,6 +5,11 @@ import type { compareAnalyses } from "@/lib/compare";
 import type { Exp4Factor, Exp4QuizQuestion, Exp4Response } from "@/data/exp4Data";
 import type { Exp5ClassMetrics, Exp5QuizQuestion, Exp5Strategy } from "@/data/exp5Data";
 import type { Exp2MetricsResult, Exp2Project, Exp2QuizQuestion, Exp2Requirement, Exp2TestCase } from "@/data/exp2Data";
+import type {
+  SizeComplianceResponseItem,
+  SizeMetricsResultItem,
+  SizeProjectItem,
+} from "@/data/exp3Data";
 
 type Rows = ReturnType<typeof compareAnalyses>;
 
@@ -262,11 +267,11 @@ export async function downloadReportPdf(
   pdf.y += 6;
 
   pdf.heading("2. Tool & Metrics");
-  pdf.field("Tool", "Radon (RadonEngine). Lizard is reserved for a later exercise.");
+  pdf.field("Tool", "Browser static analyzer (LOC, CC, Halstead, MI). Code is never executed.");
   pdf.body(form.justification);
   pdf.y += 6;
 
-  pdf.heading("3. Results (live from Radon)");
+  pdf.heading("3. Results (live from static analysis)");
   pdf.field(
     "Size",
     `LOC ${analysis.loc.loc} - SLOC ${analysis.loc.sloc} - LLOC ${analysis.loc.lloc} - comments ${analysis.loc.comments}`,
@@ -720,5 +725,60 @@ export async function downloadExp7Pdf(input: Exp7PdfInput) {
   pdf.body(input.conclusion);
 
   pdf.footerAndSave("21csc403t-exercise7-requirement-ambiguity.pdf");
+}
+
+export interface Exp3PdfInput {
+  names: string;
+  regs: string;
+  project: SizeProjectItem;
+  metrics: SizeMetricsResultItem;
+  compliance: SizeComplianceResponseItem;
+  recommendations: string[];
+  quizScore: number | null;
+  quizTotal: number;
+}
+
+export async function downloadExp3Pdf(input: Exp3PdfInput) {
+  const pdf = new LabPdf();
+  const date = new Date().toLocaleDateString();
+  await pdf.header(
+    "Software Size Estimation (FPA & COCOMO)",
+    `21CSC403T Virtual Lab - Exercise 3 Report  |  Generated ${date}`,
+  );
+
+  studentBlock(pdf, { names: input.names, regs: input.regs, title: input.project.name });
+  pdf.field("Project type", input.project.project_type);
+  pdf.field("Language", input.project.language);
+  if (input.project.description) pdf.field("Description", input.project.description);
+  pdf.y += 6;
+
+  pdf.heading("2. Knowledge Assessment");
+  pdf.body(
+    input.quizScore == null
+      ? "Quiz completed in the interactive lab dashboard."
+      : `Quiz score: ${input.quizScore} / ${input.quizTotal}.`,
+  );
+
+  const c = input.compliance;
+  pdf.heading("3. Estimation Correctness Checklist");
+  pdf.body(`Component coverage: ${c.component_coverage.passed ? "PASS" : "FAIL"} — ${c.component_coverage.detail}`);
+  pdf.body(`Complexity assigned: ${c.complexity_assigned.passed ? "PASS" : "FAIL"} — ${c.complexity_assigned.detail}`);
+  pdf.body(`GSC completeness: ${c.gsc_completeness.passed ? "PASS" : "FAIL"} — ${c.gsc_completeness.detail}`);
+  pdf.body(`Project type: ${c.project_type_missing.passed ? "PASS" : "FAIL"} — ${c.project_type_missing.detail}`);
+  pdf.body(`Language: ${c.language_missing.passed ? "PASS" : "FAIL"} — ${c.language_missing.detail}`);
+  pdf.body(`Overall estimation quality score: ${c.quality_score}/100`);
+
+  const m = input.metrics;
+  pdf.heading("4. Computed Estimates");
+  pdf.body(`UFP ${m.ufp}  |  VAF ${m.vaf}  |  AFP ${m.afp}`);
+  pdf.body(`KLOC ${m.kloc}  |  Size category ${m.size_category}`);
+  pdf.body(
+    `Effort ${m.cocomo.effort_pm} person-months  |  Time ${m.cocomo.time_months} months  |  Team ${m.cocomo.avg_team_size}`,
+  );
+
+  pdf.heading("5. Areas for Improvement");
+  input.recommendations.forEach((r) => pdf.bullet("•", r));
+
+  pdf.footerAndSave("21csc403t-exercise3-size-estimation.pdf");
 }
 

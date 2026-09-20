@@ -51,8 +51,8 @@ const OBJECTIVES = [
 
 const PROCEDURE_STEPS = [
   "Open Simulation and load the sample (or paste your own Python). Code is never executed — only parsed.",
-  "Click Analyze Code. Watch the pipeline: Source → AST → Functions → LOC → Operators → Complexity → CFG → Metrics → Insights.",
-  "Inspect KPI cards, function table, and charts. Click a function to jump in the editor.",
+  "Click Analyze Code. Watch the pipeline, then stay on Simulation — the control-flow graph appears below the editor.",
+  "Open Results for KPI cards, function table, and charts. Click a function to jump in the editor.",
   "Select a function CFG and Step / Play. At decisions choose true or false (graph walk, not a Python VM).",
   "Save Baseline. Refactor nested if/elif chains (guard clauses, helpers). Analyze Again.",
   "Compare BEFORE → AFTER percentages. Complete Exercise questions. Generate the report from Conclusion.",
@@ -174,7 +174,7 @@ function SectionBody({
       <LabCard title="Aim" icon={Target}>
         <div className="space-y-3 text-sm leading-relaxed text-slate-600">
           <p>
-            Measure software size and structural complexity of Python source using static analysis (Radon).
+            Measure software size and structural complexity of Python source using static analysis in the browser.
           </p>
           <p>
             Learn how LOC, cyclomatic complexity, Halstead metrics, and the Maintainability Index describe
@@ -227,14 +227,14 @@ function SectionBody({
         <LabCard title="McCabe cyclomatic complexity">
           <p className="mb-3 text-sm leading-relaxed text-slate-600">
             Cyclomatic complexity counts independent paths through a function. Each path needs at least
-            one test. Radon derives this from predicates in the AST, not by executing the code.
+            one test. Predicates are counted from a static parse of the buffer, not by executing the code.
           </p>
           <div className="mb-3 space-y-1.5">
             <LabFormula>M = E − N + 2P</LabFormula>
             <LabFormula>M ≈ number of decision points + 1</LabFormula>
           </div>
           <LabThresholds
-            caption="Laboratory thresholds (Radon ranks, simplified for this experiment):"
+            caption="Laboratory thresholds (McCabe ranks, simplified for this experiment):"
             rows={[
               { range: "1 – 5", label: "A · Simple", color: "bg-emerald-100 text-emerald-700" },
               { range: "6 – 10", label: "B · Moderate", color: "bg-blue-100 text-blue-700" },
@@ -269,7 +269,7 @@ function SectionBody({
 
         <LabCard title="Maintainability Index">
           <p className="mb-3 text-sm leading-relaxed text-slate-600">
-            Radon blends Halstead volume, cyclomatic complexity, and SLOC onto a 0–100 scale. Higher MI
+            The analyzer blends Halstead volume, cyclomatic complexity, and SLOC onto a 0–100 scale. Higher MI
             is easier to maintain.
           </p>
           <div className="mb-3">
@@ -278,7 +278,7 @@ function SectionBody({
             </LabFormula>
           </div>
           <LabThresholds
-            caption="Laboratory thresholds (Radon MI ranks):"
+            caption="Laboratory thresholds (MI ranks):"
             rows={[
               { range: "20 – 100", label: "A · High", color: "bg-emerald-100 text-emerald-700" },
               { range: "10 – 19", label: "B · Medium", color: "bg-amber-100 text-amber-700" },
@@ -318,7 +318,7 @@ function SectionBody({
         <LabInfoBox>
           <p className="mb-1 font-semibold">Safety</p>
           <p>
-            The backend only runs <code className="font-mono">ast.parse</code> and Radon visitors. Your
+            The lab only parses the editor buffer in the browser. Your
             code is never executed.
           </p>
         </LabInfoBox>
@@ -375,6 +375,7 @@ function SectionBody({
           </div>
         </LabCard>
 
+        <div id="exp1-cfg-graph" className="scroll-mt-24">
         <LabCard title="Control-flow graph" icon={GitCompare} padded={!analysisReady}>
           {analysisReady ? (
             <div className="h-[600px]">
@@ -391,6 +392,7 @@ function SectionBody({
             </div>
           )}
         </LabCard>
+        </div>
       </div>
     );
   }
@@ -446,7 +448,7 @@ function SectionBody({
           <p>Size, path count, and operator/operand effort are complementary views of quality.</p>
           <p>
             Metrics guide refactoring: extract predicates, flatten nests, shrink vocabulary — then verify
-            with a second Radon run.
+            with a second analysis run.
           </p>
         </div>
       </LabCard>

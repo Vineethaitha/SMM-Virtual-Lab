@@ -63,7 +63,7 @@ export function MetricsDashboard() {
         <div className="flex flex-col items-center gap-3 py-12 text-center text-slate-400">
           <BarChart3 className="h-10 w-10 opacity-40" />
           <p className="font-medium">No metrics yet</p>
-          <p className="text-sm">Analyze code in Simulation or here to see live Radon results.</p>
+          <p className="text-sm">Analyze code in Simulation or here to see live metrics.</p>
           <Button size="sm" onClick={() => void analyze()} disabled={analyzing} className="mt-1">
             <RefreshCw className={cn("h-3.5 w-3.5", analyzing && "animate-spin")} />
             {analyzing ? "Analyzing…" : "Analyze Code"}
@@ -133,7 +133,7 @@ export function MetricsDashboard() {
         <LabKpiCard
           label="Maintainability"
           value={`${formatNum(analysis.maintainability.mi)} ${analysis.maintainability.rank}`}
-          sub="0–100 Radon MI"
+          sub="0–100 Maintainability Index"
           color="amber"
         />
       </div>

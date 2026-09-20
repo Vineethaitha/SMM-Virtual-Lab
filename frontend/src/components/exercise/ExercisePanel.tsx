@@ -17,10 +17,10 @@ export function ExercisePanel() {
     return [
       {
         id: "loc",
-        prompt: "What is the physical LOC of the current module (Radon loc)?",
+        prompt: "What is the physical LOC of the current module?",
         kind: "number" as const,
         expected: String(analysis.loc.loc),
-        explain: `Radon raw.analyze reports loc = ${analysis.loc.loc} (SLOC ${analysis.loc.sloc}, LLOC ${analysis.loc.lloc}, comments ${analysis.loc.comments}, blank ${analysis.loc.blank}).`,
+        explain: `Static analysis reports loc = ${analysis.loc.loc} (SLOC ${analysis.loc.sloc}, LLOC ${analysis.loc.lloc}, comments ${analysis.loc.comments}, blank ${analysis.loc.blank}).`,
       },
       {
         id: "cc",
@@ -69,7 +69,7 @@ export function ExercisePanel() {
   }, [analysis, baseline]);
 
   if (!analysis) {
-    return <p className="p-4 text-sm text-muted-foreground">Analyze code before answering exercise questions. Answers use live Radon results.</p>;
+    return <p className="p-4 text-sm text-muted-foreground">Analyze code before answering exercise questions. Answers use live analysis results.</p>;
   }
 
   return (

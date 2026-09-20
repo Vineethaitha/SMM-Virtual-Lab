@@ -94,7 +94,7 @@ const FEATURES = [
   {
     icon: Beaker,
     title: "Real metric engines",
-    description: "Exercise 1 uses Radon on Python AST. No hardcoded LOC, CC, Halstead, or MI values.",
+    description: "Exercise 1 analyzes Python in the browser. No hardcoded LOC, CC, Halstead, or MI values.",
   },
   {
     icon: Code,

@@ -31,7 +31,7 @@ export function ComparisonPanel() {
   }
   const rows = compareAnalyses(baseline, analysis);
   return (
-    <LabCard title="BEFORE → AFTER (Radon, not estimates)">
+    <LabCard title="BEFORE → AFTER (live metrics, not estimates)">
       <table className="w-full text-left text-xs">
         <thead className="text-slate-500">
           <tr>
@@ -80,7 +80,7 @@ export function ReportPanel() {
     description: "Python module analyzed in 21CSC403T Virtual Lab Exercise 1.",
   });
   const [justification, setJustification] = useState(
-    "Radon is used because the lab is Python-only. It exposes LOC, cyclomatic complexity, Halstead, and MI from AST visitors without executing source.",
+    "Static analysis is used because the lab is Python-only. It measures LOC, cyclomatic complexity, Halstead, and MI from the editor buffer without executing source.",
   );
   const [refactor, setRefactor] = useState("");
   const [conclusion, setConclusion] = useState(
@@ -112,7 +112,7 @@ export function ReportPanel() {
           onDownload={() => void exportPdf()}
           hint={
             !analysis
-              ? "Run Analyze Code in Simulation first — the PDF embeds your live Radon metrics."
+              ? "Run Analyze Code in Simulation first — the PDF embeds your live metrics."
               : undefined
           }
         />
@@ -129,7 +129,7 @@ export function ReportPanel() {
       </LabCard>
 
       <LabCard title="Section 2 — Tool & Metrics">
-        <p className="text-sm text-slate-600">Tool: Radon (RadonEngine). Lizard is reserved for a later exercise.</p>
+        <p className="text-sm text-slate-600">Tool: browser static analyzer. Student Python is never executed.</p>
         <textarea
           className={`mt-2 ${REPORT_FIELD_CLASS}`}
           rows={3}

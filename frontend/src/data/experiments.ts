@@ -13,7 +13,7 @@ export const EXPERIMENTS: Experiment[] = [
     slug: "code-metrics",
     title: "Software Code Metrics Analysis",
     description:
-      "Compute LOC, cyclomatic complexity, Halstead metrics, and Maintainability Index with Radon. Refactor and compare before vs after.",
+      "Compute LOC, cyclomatic complexity, Halstead metrics, and Maintainability Index with static analysis. Refactor and compare before vs after.",
     icon: "BarChart3",
     implemented: true,
   },

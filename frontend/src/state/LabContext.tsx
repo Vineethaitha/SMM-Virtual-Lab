@@ -161,7 +161,14 @@ export function LabProvider({ children }: { children: ReactNode }) {
       setSimStatus("idle");
       setSimNodeId(null);
       setSimPath([]);
-      setSection("results");
+      window.requestAnimationFrame(() => {
+        window.setTimeout(() => {
+          document.getElementById("exp1-cfg-graph")?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        }, 80);
+      });
     } catch (e) {
       const err = e as Error & { lineno?: number };
       setError(err.message);
