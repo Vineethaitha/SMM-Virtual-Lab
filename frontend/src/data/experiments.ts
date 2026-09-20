@@ -24,16 +24,16 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Create requirements, write test cases, execute them, and measure coverage gaps in a test-management workflow.",
     icon: "ClipboardCheck",
-    implemented: true,
+    implemented: false,
   },
   {
     id: 3,
     slug: "size-estimation",
     title: "Software Size Estimation",
     description:
-      "Estimate software size using Function Point Analysis (FPA) & COCOMO Basic models, then relate estimates to measured KLOC.",
+      "Estimate software size using function points and related sizing techniques, then relate estimates to measured code size.",
     icon: "Ruler",
-    implemented: true,
+    implemented: false,
   },
   {
     id: 4,
