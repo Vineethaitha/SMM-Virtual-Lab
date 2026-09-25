@@ -22,10 +22,6 @@ import {
 
 import { LabCard, LabFormula, LabStepList, LabThresholds } from "@/components/lab/LabCard";
 import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
-import {
-  ReportDownloadBar,
-  ReportStudentFields,
-} from "@/components/lab/ReportForm";
 
 import {
   FPComponentItem,
@@ -52,7 +48,6 @@ import {
 } from "@/lib/exp3Store";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
-import { downloadExp3Pdf } from "@/lib/reportPdf";
 
 type Exp3Tab = "aim" | "objective" | "theory" | "procedure" | "simulation" | "exercise" | "conclusion";
 
@@ -191,12 +186,7 @@ export function SoftwareSizeEstimationPage() {
   const [compType, setCompType] = useState<"EI" | "EO" | "EQ" | "ILF" | "EIF">("EI");
   const [compComplexity, setCompComplexity] = useState<"low" | "average" | "high">("average");
 
-  // Quiz State
-  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
-  const [quizScore, setQuizScore] = useState<number | null>(null);
-  const [conclusionQuizDone, setConclusionQuizDone] = useState(false);
-  const [topicStats, setTopicStats] = useState<Record<string, { correct: number; total: number; pct: number }>>({});
 
   // Active Project Object
   const activeProject = projects.find((p) => p.id === activeProjectId) || null;
@@ -348,34 +338,6 @@ export function SoftwareSizeEstimationPage() {
     setSnapshots([]);
   };
 
-  const handleQuizSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    let score = 0;
-    const stats: Record<string, { correct: number; total: number; pct: number }> = {};
-
-    QUIZ_BANK.forEach((q) => {
-      const topic = q.topic;
-      if (!stats[topic]) {
-        stats[topic] = { correct: 0, total: 0, pct: 0 };
-      }
-      stats[topic].total += 1;
-
-      const userAns = quizAnswers[q.id];
-      if (userAns && userAns.trim().toLowerCase() === q.answer.trim().toLowerCase()) {
-        score += 1;
-        stats[topic].correct += 1;
-      }
-    });
-
-    Object.keys(stats).forEach((t) => {
-      stats[t].pct = Math.round((stats[t].correct / stats[t].total) * 100);
-    });
-
-    setQuizScore(score);
-    setTopicStats(stats);
-    setQuizSubmitted(true);
-  };
-
   // Derived metrics
   const activeMetrics: SizeMetricsResultItem = activeProject
     ? calcMetrics(activeProject, components, gscRatings)
@@ -403,17 +365,6 @@ export function SoftwareSizeEstimationPage() {
     if (!activeCompliance.gsc_completeness.passed) recs.push(IMPROVEMENT_MAP.gsc_completeness);
     if (!activeCompliance.project_type_missing.passed) recs.push(IMPROVEMENT_MAP.project_type_missing);
     if (!activeCompliance.language_missing.passed) recs.push(IMPROVEMENT_MAP.language_missing);
-
-    if (quizSubmitted && topicStats) {
-      Object.entries(topicStats).forEach(([t, data]) => {
-        if (data.pct < 50) {
-          const key = `${t}_topic`;
-          if (IMPROVEMENT_MAP[key] && !recs.includes(IMPROVEMENT_MAP[key])) {
-            recs.push(IMPROVEMENT_MAP[key]);
-          }
-        }
-      });
-    }
 
     if (recs.length === 0) {
       recs.push("Excellent work! Your software size estimation model satisfies all compliance rules and quiz topics.");
@@ -1167,7 +1118,6 @@ export function SoftwareSizeEstimationPage() {
                 }))}
                 onStatusChange={(s) => {
                   if (s.allChecked) setQuizSubmitted(true);
-                  setQuizScore(s.correct);
                 }}
               />
             </div>
@@ -1219,134 +1169,6 @@ export function SoftwareSizeEstimationPage() {
                 });
               }}
             />
-          )}
-          {false && activeTab === "conclusion" && (
-            <div className="space-y-6 hidden">
-              <LabCard title="Generate Lab Report" icon={Award}>
-                <ReportDownloadBar
-                  disabled={!activeProject || !quizSubmitted || !conclusionQuizDone}
-                  exporting={false}
-                  onDownload={() => {
-                    if (!activeProject) return;
-                    const metrics = calcMetrics(activeProject, components, gscRatings);
-                    const compliance = calcCompliance(activeProject, components, gscRatings);
-                    const recs = Object.entries({
-                      component_coverage: compliance.component_coverage,
-                      complexity_assigned: compliance.complexity_assigned,
-                      gsc_completeness: compliance.gsc_completeness,
-                      project_type_missing: compliance.project_type_missing,
-                      language_missing: compliance.language_missing,
-                    })
-                      .filter(([, rule]) => !rule.passed)
-                      .map(([key]) => IMPROVEMENT_MAP[key] ?? key);
-                    void downloadExp3Pdf({
-                      names: studentInfo.name,
-                      regs: studentInfo.registration_number,
-                      project: activeProject,
-                      metrics,
-                      compliance,
-                      recommendations: recs.length
-                        ? recs
-                        : ["Estimation checklist is complete. Review snapshots and quiz feedback in the lab."],
-                      quizScore,
-                      quizTotal: QUIZ_BANK.length,
-                    });
-                  }}
-                  hint={
-                    !activeProject
-                      ? "Create a project in Simulation first."
-                      : !quizSubmitted
-                        ? "Check every Exercise question first."
-                        : !conclusionQuizDone
-                          ? "Check every conclusion-quiz question first."
-                          : `Project: ${activeProject.name} · ${activeProject.language}`
-                  }
-                />
-                <ReportStudentFields
-                  form={{
-                    names: studentInfo.name,
-                    regs: studentInfo.registration_number,
-                    title: "Software Size Estimation",
-                    origin: "own",
-                    github: "",
-                    description: "Function Point Analysis and COCOMO Basic modelled in 21CSC403T Virtual Lab Exercise 3.",
-                  }}
-                  onChange={(key, value) => {
-                    if (key === "names") setStudentInfo((prev) => ({ ...prev, name: value }));
-                    if (key === "regs") setStudentInfo((prev) => ({ ...prev, registration_number: value }));
-                  }}
-                  originOptions={[
-                    { value: "own", label: "Own project" },
-                    { value: "sample", label: "Lab sample" },
-                    { value: "github", label: "GitHub project" },
-                  ]}
-                  footnote="Function Point Analysis & COCOMO (Exercise 3)."
-                />
-              </LabCard>
-
-              {/* Live Report Preview (Sections A, B, C, D) */}
-              <div className="p-6 bg-slate-900 text-slate-100 rounded-xl font-mono text-xs space-y-6">
-                <div className="text-center border-b border-slate-800 pb-4 space-y-1">
-                  <div className="text-base font-bold text-white">================= VIRTUAL LAB REPORT =================</div>
-                  <div className="text-cyan-400 font-semibold">21CSC403T — Software Metrics & Measurement</div>
-                  <div>Experiment 3: Software Size Estimation (FPA & COCOMO)</div>
-                  <div className="text-slate-400">
-                    Student: <strong>{studentInfo.name || "N/A"}</strong> | Reg No: <strong>{studentInfo.registration_number || "N/A"}</strong>
-                  </div>
-                  {activeProject && (
-                    <div className="text-slate-400">
-                      Project: <strong>{activeProject.name}</strong> ({activeProject.project_type}, {activeProject.language})
-                    </div>
-                  )}
-                </div>
-
-                {/* Section A */}
-                <div className="space-y-2">
-                  <div className="font-bold text-cyan-400 border-b border-slate-800 pb-1">SECTION A — Knowledge Assessment (MCQ)</div>
-                  <div>
-                    Score: <strong>{quizScore !== null ? `${quizScore} / ${QUIZ_BANK.length}` : "Not submitted yet"}</strong>
-                  </div>
-                </div>
-
-                {/* Section B */}
-                <div className="space-y-2">
-                  <div className="font-bold text-cyan-400 border-b border-slate-800 pb-1">SECTION B — Estimation Correctness Audit</div>
-                  <div>[{activeCompliance.component_coverage.passed ? "✅" : "❌"}] Component Coverage — {activeCompliance.component_coverage.detail}</div>
-                  <div>[{activeCompliance.complexity_assigned.passed ? "✅" : "❌"}] Complexity Assigned — {activeCompliance.complexity_assigned.detail}</div>
-                  <div>[{activeCompliance.gsc_completeness.passed ? "✅" : "❌"}] GSC Completeness — {activeCompliance.gsc_completeness.detail}</div>
-                  <div>[{activeCompliance.project_type_missing.passed ? "✅" : "❌"}] Project Type Selected — {activeCompliance.project_type_missing.detail}</div>
-                  <div>[{activeCompliance.language_missing.passed ? "✅" : "❌"}] Language Selected — {activeCompliance.language_missing.detail}</div>
-                  <div className="font-bold text-white">Overall Quality Score: {activeCompliance.quality_score} / 100</div>
-                </div>
-
-                {/* Section C */}
-                <div className="space-y-2">
-                  <div className="font-bold text-cyan-400 border-b border-slate-800 pb-1">SECTION C — Computed Estimates</div>
-                  <div>Unadjusted Function Points (UFP): {activeMetrics.ufp} FP</div>
-                  <div>Value Adjustment Factor (VAF): {activeMetrics.vaf} (TDI = {activeMetrics.tdi})</div>
-                  <div>Adjusted Function Points (AFP): {activeMetrics.afp} FP</div>
-                  <div>Estimated Size (KLOC): {activeMetrics.kloc} KLOC ({activeMetrics.loc_per_fp} LOC/FP)</div>
-                  <div>COCOMO Effort: {activeMetrics.cocomo.effort_pm} Person-Months</div>
-                  <div>COCOMO Schedule: {activeMetrics.cocomo.time_months} Calendar Months</div>
-                  <div>COCOMO Avg Team Size: {activeMetrics.cocomo.avg_team_size} Engineers</div>
-                  <div>Size Category: {activeMetrics.size_category}</div>
-                </div>
-
-                {/* Section D */}
-                <div className="space-y-2">
-                  <div className="font-bold text-cyan-400 border-b border-slate-800 pb-1">SECTION D — Areas for Improvement</div>
-                  <ul className="list-disc list-inside space-y-1 text-slate-300">
-                    {getRecommendations().map((rec, i) => (
-                      <li key={i}>{rec}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="text-center text-slate-500 border-t border-slate-800 pt-4">
-                  =======================================================
-                </div>
-              </div>
-            </div>
           )}
         </div>
     </LabPageShell>

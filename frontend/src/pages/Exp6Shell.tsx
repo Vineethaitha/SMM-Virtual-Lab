@@ -19,7 +19,6 @@ import {
   BookOpen,
   Check,
   ClipboardList,
-  Download,
   FileText,
   FlaskConical,
   Lightbulb,

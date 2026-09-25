@@ -3,7 +3,7 @@ import {
   ClipboardCheck, Target, Lightbulb, BookOpen, ListOrdered,
   Layers, Play, CheckCircle2, XCircle,
   Award, Plus, Trash2,
-  Download, Check, Ban, FolderPlus, ExternalLink,
+  Check, Ban, FolderPlus, ExternalLink,
   FileText, CheckSquare, ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,11 +12,9 @@ import { LabCard, LabFormula, LabInfoBox, LabStepList } from "@/components/lab/L
 import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
-import { ReportDownloadBar, ReportStudentFields, type ReportStudentForm } from "@/components/lab/ReportForm";
 import {
   EXP2_TABS,
   EXP2_QUIZ_BANK,
-  IMPROVEMENT_MAP,
   calculateLocalMetrics,
   checkLocalCompliance,
   type Exp2Project,
@@ -438,18 +436,6 @@ export function TestCaseManagementPage() {
   const [newProjName, setNewProjName] = useState("");
   const [newProjDesc, setNewProjDesc] = useState("");
 
-  const [studentNameInput, setStudentNameInput] = useState("");
-  const [studentRegInput, setStudentRegInput] = useState("");
-  const [reportStudent, setReportStudent] = useState<ReportStudentForm>({
-    names: "",
-    regs: "",
-    title: "Test Case Management (Kiwi TCMS)",
-    origin: "own",
-    github: "",
-    description: "Test-management workflow practised in 21CSC403T Virtual Lab Exercise 2.",
-  });
-  const [exporting, setExporting] = useState(false);
-
   const [newReqId, setNewReqId] = useState("");
   const [newReqTitle, setNewReqTitle] = useState("");
   const [newReqDesc, setNewReqDesc] = useState("");
@@ -471,8 +457,6 @@ export function TestCaseManagementPage() {
 
   // Quiz state
   const [quizSubmitted, setQuizSubmitted] = useState(false);
-  const [conclusionQuizDone, setConclusionQuizDone] = useState(false);
-  const [quizScore, setQuizScore] = useState(0);
 
   const activeProject = useMemo(
     () => projects.find(p => p.id === activeProjectId) || null,
@@ -1084,7 +1068,6 @@ export function TestCaseManagementPage() {
                 }))}
                 onStatusChange={(s) => {
                   if (s.allChecked) setQuizSubmitted(true);
-                  setQuizScore(s.correct);
                 }}
               />
             </div>
@@ -1137,115 +1120,6 @@ export function TestCaseManagementPage() {
                 });
               }}
             />
-          )}
-          {false && (
-            <div className="space-y-6 hidden">
-              <LabCard title="Generate Lab Report" icon={Download}>
-                <ReportDownloadBar
-                  disabled={!quizSubmitted || !conclusionQuizDone || !activeProject}
-                  exporting={exporting}
-                  onDownload={() => {
-                    void (async () => {
-                      if (!activeProject) return;
-                      setExporting(true);
-                      try {
-                        const { downloadExp2Pdf } = await import("@/lib/reportPdf");
-                        await downloadExp2Pdf({
-                          names: reportStudent.names,
-                          regs: reportStudent.regs,
-                          project: activeProject,
-                          requirements: currentReqs,
-                          testCases: currentTcs,
-                          summary: currentMetrics,
-                          uncovered: currentReqs.filter(
-                            (r) => !currentTcs.some((tc) => tc.linked_requirement_ids.includes(r.id)),
-                          ),
-                          conclusion:
-                            "Requirement traceability, test-case authoring, and execution completeness were measured from the student-authored suite.",
-                        });
-                      } finally {
-                        setExporting(false);
-                      }
-                    })();
-                  }}
-                  hint={
-                    !activeProject
-                      ? "Create a project in Simulation first."
-                      : !quizSubmitted
-                        ? "Check every Exercise question first."
-                        : !conclusionQuizDone
-                          ? "Check every conclusion-quiz question first."
-                          : `Project: ${activeProject.name} · maturity ${currentMetrics.maturity_score}/100`
-                  }
-                />
-                <ReportStudentFields
-                  form={{ ...reportStudent, names: reportStudent.names || studentNameInput, regs: reportStudent.regs || studentRegInput }}
-                  onChange={(key, value) => {
-                    setReportStudent((f) => ({ ...f, [key]: value }));
-                    if (key === "names") setStudentNameInput(value);
-                    if (key === "regs") setStudentRegInput(value);
-                  }}
-                  originOptions={[
-                    { value: "own", label: "Own project" },
-                    { value: "sample", label: "Lab sample" },
-                    { value: "github", label: "GitHub project" },
-                  ]}
-                  footnote="Test Case Management (Exercise 2)."
-                />
-              </LabCard>
-
-              <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm space-y-6 text-slate-800">
-                <div className="border-b border-slate-200 pb-4 flex justify-between items-start">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900 uppercase tracking-tight">Virtual Lab Report</h2>
-                    <p className="text-xs text-slate-500">Experiment 2: Test Case Management (Kiwi TCMS)</p>
-                  </div>
-                  <div className="text-right text-xs">
-                    <p><strong className="text-slate-900">Student:</strong> {studentNameInput || "Not Entered"}</p>
-                    <p><strong className="text-slate-900">Reg No:</strong> {studentRegInput || "Not Entered"}</p>
-                    <p><strong className="text-slate-900">Project:</strong> {activeProject?.name || "None"}</p>
-                  </div>
-                </div>
-
-                {/* SECTION A */}
-                <div className="space-y-2">
-                  <h4 className="font-bold text-xs text-slate-900 uppercase border-b pb-1">SECTION A — Knowledge Assessment (MCQ)</h4>
-                  <p className="text-xs font-mono">Score: {quizScore} / {EXP2_QUIZ_BANK.length} ({((quizScore / EXP2_QUIZ_BANK.length) * 100).toFixed(1)}%)</p>
-                </div>
-
-                {/* SECTION B */}
-                <div className="space-y-2">
-                  <h4 className="font-bold text-xs text-slate-900 uppercase border-b pb-1">SECTION B — Test Case Authoring Compliance</h4>
-                  <div className="space-y-1 text-xs font-mono">
-                    <p>[{currentCompliance.completeness.passed ? "✅" : "❌"}] Completeness — {currentCompliance.completeness.detail}</p>
-                    <p>[{currentCompliance.traceability.passed ? "✅" : "❌"}] Traceability — {currentCompliance.traceability.detail}</p>
-                    <p>[{currentCompliance.coverage.passed ? "✅" : "❌"}] Coverage — {currentCompliance.coverage.detail}</p>
-                    <p>[{currentCompliance.tier_diversity.passed ? "✅" : "❌"}] Tier Diversity — {currentCompliance.tier_diversity.detail}</p>
-                    <p>[{currentCompliance.execution_completeness.passed ? "✅" : "❌"}] Execution Complete — {currentCompliance.execution_completeness.detail}</p>
-                    <p className="font-bold text-blue-600 mt-2">Quality Score: {currentCompliance.quality_score}/100</p>
-                  </div>
-                </div>
-
-                {/* SECTION C */}
-                <div className="space-y-2">
-                  <h4 className="font-bold text-xs text-slate-900 uppercase border-b pb-1">SECTION C — Project Metrics Summary</h4>
-                  <p className="text-xs font-mono">Requirement Coverage: {currentMetrics.requirement_coverage_pct}% | Pass Rate: {currentMetrics.pass_rate_pct}% | Orphan Tests: {currentMetrics.orphan_test_cases.length} | Maturity Score: {currentMetrics.maturity_score}/100</p>
-                </div>
-
-                {/* SECTION D */}
-                <div className="space-y-2">
-                  <h4 className="font-bold text-xs text-slate-900 uppercase border-b pb-1">SECTION D — Areas for Improvement</h4>
-                  <ul className="list-disc pl-4 text-xs space-y-1 text-slate-700">
-                    {!currentCompliance.completeness.passed && <li>{IMPROVEMENT_MAP.completeness}</li>}
-                    {!currentCompliance.traceability.passed && <li>{IMPROVEMENT_MAP.traceability}</li>}
-                    {!currentCompliance.coverage.passed && <li>{IMPROVEMENT_MAP.coverage}</li>}
-                    {!currentCompliance.tier_diversity.passed && <li>{IMPROVEMENT_MAP.tier_diversity}</li>}
-                    {!currentCompliance.execution_completeness.passed && <li>{IMPROVEMENT_MAP.execution_completeness}</li>}
-                    {currentCompliance.quality_score === 100 && <li>Excellent work! Your test suite meets all 5 compliance standards.</li>}
-                  </ul>
-                </div>
-              </div>
-            </div>
           )}
         </div>
     </LabPageShell>
