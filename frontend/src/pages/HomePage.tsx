@@ -496,6 +496,12 @@ export function HomePage() {
           <p className="font-bold text-foreground">
             SRM Institute of Science and Technology · 21CSC403T Virtual Lab
           </p>
+          <div className="space-y-1 text-sm">
+            <p>Department of Computational Intelligence</p>
+            <p>
+              Mentor: <span className="font-medium text-foreground">Dr.T.Grace Shalini</span>
+            </p>
+          </div>
         </div>
         <p>© {new Date().getFullYear()} SRM Institute of Science and Technology. All rights reserved.</p>
       </footer>
