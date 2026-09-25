@@ -40,11 +40,8 @@ import {
 import { Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LabCard, LabFormula, LabInfoBox, LabKpiCard, LabThresholds } from "@/components/lab/LabCard";
-import {
-  ReportDownloadBar,
-  ReportStudentFields,
-  type ReportStudentForm,
-} from "@/components/lab/ReportForm";
+import { LabQuizCards } from "@/components/exercise/LabQuizCards";
+import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
 import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
 import { cn } from "@/lib/utils";
 
@@ -771,192 +768,195 @@ const QUESTIONS: Question[] = [
   },
   {
     id: 4,
-    text: "Explain what refactoring pattern you would apply to NotificationEngine and why it reduces CBO.",
-    type: "short",
-    answer: "Apply Extract Class to split NotificationEngine into EmailNotifier, SmsNotifier, PushNotifier, and NotificationAuditLogger, coordinated by a NotificationFacade. Each specialist couples only to its own subset of dependencies, so CBO per class drops from 16 to ≤ 6. The facade provides a single stable interface to callers without accumulating all couplings in one class.",
-    explanation: "",
+    text: "Which refactoring best reduces NotificationEngine’s CBO?",
+    type: "mcq",
+    options: [
+      "Extract Class / Facade so each notifier owns fewer dependencies",
+      "Increase DIT by adding five more superclasses",
+      "Merge every collaborator into NotificationEngine",
+      "Delete all unit tests",
+    ],
+    answer: "Extract Class / Facade so each notifier owns fewer dependencies",
+    explanation:
+      "Splitting Email/SMS/Push specialists plus a facade drops per-class couplings instead of concentrating them.",
   },
   {
     id: 5,
-    text: "AttendanceController has WMC = 14, CBO = 7, RFC = 29. Is this class problematic? Justify your answer using threshold values.",
-    type: "short",
-    answer: "No. All three metrics are below their respective thresholds (WMC < 20, CBO < 14, RFC < 50). LCOM = 0 confirms cohesion is acceptable. The controller appears well-scoped for a REST endpoint handler, and no refactoring is immediately indicated by the metric evidence.",
-    explanation: "",
+    text: "AttendanceController has WMC = 14, CBO = 7, RFC = 29. Using the lab thresholds (WMC < 20, CBO < 14, RFC < 50), this class is:",
+    type: "mcq",
+    options: [
+      "Within all three thresholds — not flagged as problematic",
+      "Over the WMC threshold only",
+      "Over the CBO threshold only",
+      "Over the RFC threshold only",
+    ],
+    answer: "Within all three thresholds — not flagged as problematic",
+    explanation: "14 < 20, 7 < 14, and 29 < 50, so the controller is inside the stated limits.",
   },
 ];
 
-function ExercisePanel() {
-  const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [submitted, setSubmitted] = useState<Record<number, boolean>>({});
-  const [shown, setShown] = useState<Record<number, boolean>>({});
+const CONCLUSION_QUIZ = [
+  {
+    id: "c1",
+    prompt: "Which CK metric counts methods that may execute in response to a single message?",
+    options: ["RFC", "NOC", "DIT", "LCOM"],
+    expected: "RFC",
+    explain: "Response For a Class (RFC) is the size of the response set for a message.",
+  },
+  {
+    id: "c2",
+    prompt: "A CBO value above the lab threshold mainly signals which risk?",
+    options: ["Ripple-change coupling risk", "Too few subclasses", "Empty inheritance tree", "Zero test paths"],
+    expected: "Ripple-change coupling risk",
+    explain: "High CBO means the class depends on many others, so a change elsewhere is more likely to break it.",
+  },
+  {
+    id: "c3",
+    prompt: "LCOM near 1 typically means the class should be:",
+    options: ["Split by responsibility", "Merged into a god class", "Given a deeper hierarchy", "Ignored in refactoring"],
+    expected: "Split by responsibility",
+    explain: "Very high LCOM means methods do not share state, so responsibilities are unrelated.",
+  },
+  {
+    id: "c4",
+    prompt: "WMC (Weighted Methods per Class) mainly reflects:",
+    expected: "How much method complexity sits inside one class",
+    explain: "WMC sums method complexities (often 1 per method or McCabe per method).",
+    options: [
+      "Only the depth of the inheritance tree",
+      "How much method complexity sits inside one class",
+      "Comment density",
+      "Survey Likert averages",
+    ],
+  },
+  {
+    id: "c5",
+    prompt: "DIT (Depth of Inheritance Tree) that is very large often implies:",
+    expected: "Harder understanding because behaviour is spread across many ancestors",
+    explain: "Deep trees reuse more, but a change high up has a long ripple.",
+    options: [
+      "Zero coupling by definition",
+      "Harder understanding because behaviour is spread across many ancestors",
+      "That LCOM must be 0",
+      "That the class has no methods",
+    ],
+  },
+  {
+    id: "c6",
+    prompt: "NOC (Number of Children) that is very high can mean:",
+    expected: "A change to the parent may affect many subclasses",
+    explain: "Wide inheritance increases the blast radius of parent edits.",
+    options: [
+      "The class is unused",
+      "A change to the parent may affect many subclasses",
+      "RFC is always 1",
+      "CBO must be zero",
+    ],
+  },
+  {
+    id: "c7",
+    prompt: "CBO counts:",
+    expected: "How many other classes this class is coupled to",
+    explain: "Coupling Between Objects is the size of the set of collaborating types.",
+    options: [
+      "Blank lines in a file",
+      "How many other classes this class is coupled to",
+      "Function points only",
+      "Sprint days under USL",
+    ],
+  },
+  {
+    id: "c8",
+    prompt: "Which pair is most about inheritance structure?",
+    expected: "DIT and NOC",
+    explain: "Depth and children describe the hierarchy; CBO/RFC describe collaboration.",
+    options: ["UFP and VAF", "DIT and NOC", "Cp and Cpk", "Pass and Blocked"],
+  },
+  {
+    id: "c9",
+    prompt: "A god class typically shows:",
+    expected: "High WMC and often high LCOM or CBO",
+    explain: "Too many methods, mixed responsibilities, and many collaborators are the usual signature.",
+    options: [
+      "Low WMC and no methods",
+      "High WMC and often high LCOM or CBO",
+      "Only a perfect MI",
+      "Zero attributes by rule",
+    ],
+  },
+  {
+    id: "c10",
+    prompt: "CK metrics are most useful when you:",
+    expected: "Compare classes and target refactoring where several metrics are simultaneously high-risk",
+    explain: "One red number is a hint; a cluster (WMC + CBO + LCOM) is a design smell.",
+    options: [
+      "Ignore all thresholds",
+      "Compare classes and target refactoring where several metrics are simultaneously high-risk",
+      "Replace testing entirely",
+      "Compute only KLOC",
+    ],
+  },
+];
 
-  function submit(id: number) {
-    setSubmitted((s) => ({ ...s, [id]: true }));
-  }
-  function showModel(id: number) {
-    setShown((s) => ({ ...s, [id]: true }));
-  }
-
-  const mcqScore = QUESTIONS.filter((q) => q.type === "mcq" && submitted[q.id] && answers[q.id] === q.answer).length;
-  const mcqTotal = QUESTIONS.filter((q) => q.type === "mcq").length;
-
+function ExercisePanel({ onDone }: { onDone: (done: boolean) => void }) {
   return (
     <div className="space-y-4">
-      <LabCard title="Exercise Questions" icon={Activity}>
-        <p className="text-xs text-slate-500">
-          Answer all questions based on the metrics and analysis you studied. MCQs are auto-scored.
-          Short-answer questions have a model answer you can compare with.
+      <LabCard title="Exercise" icon={Activity}>
+        <p className="text-sm leading-relaxed text-slate-600">
+          Answer from the CK educational dataset. Use Try Yourself, Check Answer, and Show Explanation on each card.
         </p>
       </LabCard>
-
-      {QUESTIONS.map((q) => {
-        const userAnswer = answers[q.id] ?? "";
-        const isSubmitted = !!submitted[q.id];
-        const isCorrect = q.type === "mcq" && userAnswer === q.answer;
-        const modelShown = !!shown[q.id];
-
-        return (
-          <LabCard key={q.id} title={`Q${q.id}. ${q.text}`}>
-            <div className="space-y-3">
-              {q.type === "mcq" && q.options && (
-                <div className="space-y-2">
-                  {q.options.map((opt) => (
-                    <button
-                      key={opt}
-                      type="button"
-                      disabled={isSubmitted}
-                      onClick={() => setAnswers((a) => ({ ...a, [q.id]: opt }))}
-                      className={cn(
-                        "block w-full rounded-lg border px-4 py-3 text-left text-sm transition-all",
-                        quizOptionClass({
-                          selected: userAnswer === opt,
-                          revealed: isSubmitted,
-                          isCorrectOption: opt === q.answer,
-                        }),
-                      )}
-                    >
-                      {opt}
-                    </button>
-                  ))}
-                  {!isSubmitted && (
-                    <Button size="sm" disabled={!userAnswer} onClick={() => submit(q.id)}>
-                      Submit Answer
-                    </Button>
-                  )}
-                  {isSubmitted && (
-                    <div className={cn("flex items-start gap-2 rounded-md px-3 py-2 text-xs",
-                      isCorrect ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-700"
-                    )}>
-                      {isCorrect ? <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <X className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
-                      <div>
-                        <strong>{isCorrect ? "Correct!" : "Incorrect."}</strong> {q.explanation}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {q.type === "short" && (
-                <div className="space-y-2">
-                  <textarea
-                    id={`short-${q.id}`}
-                    rows={4}
-                    value={userAnswer}
-                    onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
-                    placeholder="Type your answer here…"
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <div className="flex gap-2">
-                    <Button size="sm" disabled={!userAnswer} onClick={() => showModel(q.id)}>
-                      Show Model Answer
-                    </Button>
-                  </div>
-                  {modelShown && (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-slate-700">
-                      <p className="mb-1 font-semibold text-blue-600">Model Answer</p>
-                      {q.answer}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </LabCard>
-        );
-      })}
-
-      {QUESTIONS.filter((q) => q.type === "mcq").every((q) => submitted[q.id]) && (
-        <LabCard>
-          <div className="flex items-center gap-4">
-            <div className="text-center">
-              <div className="font-mono text-3xl font-bold text-blue-600">{mcqScore}/{mcqTotal}</div>
-              <div className="text-xs text-slate-500">MCQ Score</div>
-            </div>
-            <p className="text-sm text-slate-600">
-              {mcqScore === mcqTotal
-                ? "Full marks on all multiple-choice questions. Excellent work!"
-                : `Review the highlighted questions and the Analysis section for clarification.`}
-            </p>
-          </div>
-        </LabCard>
-      )}
+      <LabQuizCards
+        questions={QUESTIONS.map((q) => ({
+          id: String(q.id),
+          prompt: q.text,
+          expected: q.answer,
+          explain: q.explanation || q.answer,
+          options: q.options,
+        }))}
+        onStatusChange={(s) => {
+          if (s.allChecked) onDone(true);
+        }}
+      />
     </div>
   );
 }
 
-function ConclusionSection() {
-  const [student, setStudent] = useState<ReportStudentForm>({
-    names: "",
-    regs: "",
-    title: "OO Metrics with CK / SonarCloud",
-    origin: "sample",
-    github: "",
-    description: "CK metric analysis of the educational class dataset in 21CSC403T Virtual Lab Exercise 6.",
-  });
-  const [exporting, setExporting] = useState(false);
-
-  async function handleDownload() {
-    setExporting(true);
-    try {
-      const { downloadExp6Pdf } = await import("@/lib/reportPdf");
-      await downloadExp6Pdf({
-        names: student.names,
-        regs: student.regs,
-        title: student.title,
-        origin: student.origin,
-        github: student.github,
-        description: student.description,
-        classes: OO_CLASSES,
-        thresholds: THRESHOLDS,
-        conclusion: COPY.conclusion.body.join(" "),
-      });
-    } finally {
-      setExporting(false);
-    }
-  }
-
+function ConclusionSection({ exerciseDone }: { exerciseDone: boolean }) {
   return (
-    <div className="space-y-4">
-      <TheoryCard section="conclusion" />
-      <LabCard title="Generate Lab Report" icon={Download}>
-        <ReportDownloadBar
-          buttonId="exp6-download-report"
-          disabled={false}
-          exporting={exporting}
-          onDownload={() => void handleDownload()}
-          hint="Report export will use the current class metrics."
-        />
-        <ReportStudentFields
-          form={student}
-          onChange={(key, value) => setStudent((f) => ({ ...f, [key]: value }))}
-          originOptions={[
-            { value: "sample", label: "Lab sample / own snippet" },
-            { value: "own", label: "Own project" },
-            { value: "github", label: "GitHub project" },
-          ]}
-          footnote="CK / SonarCloud OO metrics (Exercise 6)."
-        />
-      </LabCard>
-    </div>
+    <ConclusionQuizGate
+      paragraphs={COPY.conclusion.body}
+      questions={CONCLUSION_QUIZ}
+      quizTitle="Experiment 6 — Conclusion quiz"
+      locked={!exerciseDone}
+      lockHint="Complete every question in the Exercise tab, then return here to take the quiz."
+      originOptions={[
+        { value: "sample", label: "Lab sample / own snippet" },
+        { value: "own", label: "Own project" },
+        { value: "github", label: "GitHub project" },
+      ]}
+      footnote="CK / SonarCloud OO metrics (Exercise 6)."
+      studentSeed={{ title: "OO Metrics with CK / SonarCloud", origin: "sample" }}
+      onDownload={async (s, result) => {
+        const { downloadUnifiedLabPdf } = await import("@/lib/reportPdf");
+        await downloadUnifiedLabPdf({
+          experimentNumber: 6,
+          experimentTitle: "OO Metrics with CK / SonarCloud",
+          names: s.names,
+          regs: s.regs,
+          projectTitle: s.title,
+          origin: s.origin,
+          github: s.github,
+          description: s.description,
+          toolNote: "Educational CK dataset (not a live CK/SonarCloud run).",
+          resultLines: OO_CLASSES.map((c) => `${c.name}: WMC ${c.wmc}, CBO ${c.cbo}, RFC ${c.rfc}, LCOM ${c.lcom}`),
+          analysisLines: COPY.conclusion.body,
+          conclusion: COPY.conclusion.body.join(" "),
+          quizScore: result.score,
+          quizTotal: result.total,
+        });
+      }}
+    />
   );
 }
 
@@ -977,6 +977,7 @@ function MetricsKpiRow() {
 // ─── Main shell ───────────────────────────────────────────────────────────────
 export function Exp6Shell() {
   const [section, setSection] = useState<Exp6Section>("aim");
+  const [exerciseDone, setExerciseDone] = useState(false);
 
   function renderBody() {
     if (section === "theory") return <TheorySection />;
@@ -1001,8 +1002,8 @@ export function Exp6Shell() {
     }
     if (section === "analysis") return <AnalysisSection />;
     if (section === "refactoring") return <RefactoringSection />;
-    if (section === "exercise") return <ExercisePanel />;
-    if (section === "conclusion") return <ConclusionSection />;
+    if (section === "exercise") return <ExercisePanel onDone={setExerciseDone} />;
+    if (section === "conclusion") return <ConclusionSection exerciseDone={exerciseDone} />;
     return <TheoryCard section={section} />;
   }
 

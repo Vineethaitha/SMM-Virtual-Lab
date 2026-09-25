@@ -48,7 +48,6 @@ export type Exp5Tab =
   | "exercise"
   | "simulation"
   | "results"
-  | "analysis"
   | "comparison"
   | "conclusion";
 
@@ -60,7 +59,6 @@ export const EXP5_TABS: { id: Exp5Tab; label: string }[] = [
   { id: "exercise", label: "Exercise" },
   { id: "simulation", label: "Simulation" },
   { id: "results", label: "Results" },
-  { id: "analysis", label: "Analysis" },
   { id: "comparison", label: "Comparison" },
   { id: "conclusion", label: "Conclusion" },
 ];

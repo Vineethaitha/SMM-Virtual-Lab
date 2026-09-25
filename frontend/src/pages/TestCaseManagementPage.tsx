@@ -10,6 +10,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { LabCard, LabFormula, LabInfoBox, LabStepList } from "@/components/lab/LabCard";
 import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
+import { LabQuizCards } from "@/components/exercise/LabQuizCards";
+import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
 import { ReportDownloadBar, ReportStudentFields, type ReportStudentForm } from "@/components/lab/ReportForm";
 import {
   EXP2_TABS,
@@ -41,6 +43,119 @@ const EXP2_SECTIONS: LabPageSection<Exp2Tab>[] = EXP2_TABS.map((tab) => ({
   ...tab,
   icon: EXP2_TAB_ICONS[tab.id],
 }));
+
+const EXP2_CONCLUSION_QUIZ = [
+  {
+    id: "c1",
+    prompt: "A requirement with no linked test case is primarily a:",
+    expected: "Traceability gap",
+    explain: "Coverage is incomplete until at least one test case references that requirement id.",
+    options: ["Passed run", "Traceability gap", "Blocked defect", "Usability theme"],
+  },
+  {
+    id: "c2",
+    prompt: "Which execution outcome means the case could not be finished because of an external blocker?",
+    expected: "Blocked",
+    explain: "Blocked is distinct from Fail: the test did not complete, so it is not evidence of a product defect yet.",
+    options: ["Pass", "Fail", "Blocked", "Skip as passed"],
+  },
+  {
+    id: "c3",
+    prompt: "Why does this lab ask you to author both positive and negative cases?",
+    expected: "To exercise expected success paths and invalid or boundary input",
+    explain: "A suite of only happy-path cases under-measures requirement risk.",
+    options: [
+      "To exercise expected success paths and invalid or boundary input",
+      "Because negative cases replace requirements",
+      "To increase LOC in the report",
+      "So the PDF can skip the metrics table",
+    ],
+  },
+  {
+    id: "c4",
+    prompt: "Requirement-to-test coverage is complete only when:",
+    expected: "Every requirement id is referenced by at least one test case",
+    explain: "A matrix with empty requirement rows is a planned-test gap, not a passed suite.",
+    options: [
+      "Every requirement id is referenced by at least one test case",
+      "At least one test has status Pass",
+      "The suite has more than ten cases",
+      "All cases are High priority",
+    ],
+  },
+  {
+    id: "c5",
+    prompt: "Fail means:",
+    expected: "The case ran to completion and the actual result did not match expected",
+    explain: "Fail is evidence of a product or environment mismatch after execution finished.",
+    options: [
+      "The tester never started the case",
+      "The case ran to completion and the actual result did not match expected",
+      "The same as Blocked",
+      "A missing requirement id",
+    ],
+  },
+  {
+    id: "c6",
+    prompt: "A High priority case should typically be executed:",
+    expected: "Before Low-priority cosmetic checks when time is short",
+    explain: "Risk-based testing schedules high-impact paths first.",
+    options: [
+      "Only after the report is downloaded",
+      "Before Low-priority cosmetic checks when time is short",
+      "Never, because High means deferred",
+      "Only if the requirement has no id",
+    ],
+  },
+  {
+    id: "c7",
+    prompt: "Boundary-value cases are written to:",
+    expected: "Probe edges of valid and invalid input ranges",
+    explain: "Defects cluster at limits (min, max, off-by-one), not only at typical mid-range data.",
+    options: [
+      "Replace all functional cases",
+      "Probe edges of valid and invalid input ranges",
+      "Measure Halstead volume",
+      "Count Likert scores",
+    ],
+  },
+  {
+    id: "c8",
+    prompt: "One requirement may map to many tests because:",
+    expected: "Happy path, negative, and boundary conditions often need separate cases",
+    explain: "Traceability is many-to-many: one req, several techniques; one test may also cover several reqs.",
+    options: [
+      "IEEE forbids more than one test per requirement",
+      "Happy path, negative, and boundary conditions often need separate cases",
+      "Tests cannot mention requirement ids",
+      "Coverage is computed only from LOC",
+    ],
+  },
+  {
+    id: "c9",
+    prompt: "After a defect fix, the most relevant extra run is:",
+    expected: "A regression set that re-checks previously passing related cases",
+    explain: "Fixes can break nearby behaviour; regression protects the rest of the suite.",
+    options: [
+      "Deleting the failed case",
+      "A regression set that re-checks previously passing related cases",
+      "Changing the requirement text only",
+      "Marking Blocked as Pass",
+    ],
+  },
+  {
+    id: "c10",
+    prompt: "Pass rate alone is a weak quality claim if:",
+    expected: "Many requirements still have zero linked cases or many cases are Blocked",
+    explain: "A 100% pass on a tiny traced subset hides untested risk.",
+    options: [
+      "The PDF includes student names",
+      "Many requirements still have zero linked cases or many cases are Blocked",
+      "Priority labels exist",
+      "The suite uses both functional and usability types",
+    ],
+  },
+];
 
 function Exp2Badge({ status, size = "md" }: { status: string; size?: "sm" | "md" }) {
   const styles: Record<string, string> = {
@@ -216,6 +331,11 @@ function Exp2TheoryTab() {
           <LabFormula>Requirement Coverage % = (linked requirements / total requirements) × 100</LabFormula>
           <LabFormula>Pass Rate % = (passed tests / executed tests) × 100</LabFormula>
           <LabFormula>Maturity Score = completeness + traceability + coverage + diversity + execution</LabFormula>
+          <p className="mt-2 text-xs text-slate-500">
+            Linked requirements = requirements with at least one test case. Executed tests = cases with a
+            Pass, Fail, or Blocked result. Completeness / diversity / execution are lab scoring parts that
+            reward filled fields, mixed test tiers, and a finished run.
+          </p>
         </div>
       </LabCard>
 
@@ -350,8 +470,9 @@ export function TestCaseManagementPage() {
   const [executionState, setExecutionState] = useState<Record<string, { status: "Pass" | "Fail" | "Blocked"; notes: string }>>({});
 
   // Quiz state
-  const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [conclusionQuizDone, setConclusionQuizDone] = useState(false);
+  const [quizScore, setQuizScore] = useState(0);
 
   const activeProject = useMemo(
     () => projects.find(p => p.id === activeProjectId) || null,
@@ -519,15 +640,6 @@ export function TestCaseManagementPage() {
 
     alert("Test run recorded into project database!");
   };
-
-  // Quiz score calculation
-  const quizScore = useMemo(() => {
-    let score = 0;
-    EXP2_QUIZ_BANK.forEach(q => {
-      if (quizAnswers[q.id]?.trim().toLowerCase() === q.answer.trim().toLowerCase()) score++;
-    });
-    return score;
-  }, [quizAnswers]);
 
   return (
     <>
@@ -956,129 +1068,81 @@ export function TestCaseManagementPage() {
 
           {/* EXERCISE TAB */}
           {activeTab === "exercise" && (
-            <div className="space-y-6">
-              <LabCard title="10-Question Knowledge Check Quiz" icon={Layers}>
-                <div className="space-y-6">
-                  {EXP2_QUIZ_BANK.map((q, idx) => {
-                    const chosen = quizAnswers[q.id];
-                    const isCorrect = chosen?.trim().toLowerCase() === q.answer.trim().toLowerCase();
-
-                    return (
-                      <div
-                        key={q.id}
-                        className={cn(
-                          "rounded-lg border p-4 space-y-3 transition-all",
-                          quizSubmitted
-                            ? isCorrect
-                              ? "border-emerald-300 bg-emerald-50/50"
-                              : "border-rose-300 bg-rose-50/50"
-                            : "border-slate-200 bg-slate-50/50"
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-slate-900">{idx + 1}. {q.prompt}</p>
-                            {quizSubmitted && (
-                              isCorrect ? (
-                                <span className="inline-flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-bold px-2 py-0.5 rounded">
-                                  <CheckCircle2 className="h-3 w-3" /> Correct (+1)
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 bg-rose-600 text-white text-[11px] font-bold px-2 py-0.5 rounded">
-                                  <XCircle className="h-3 w-3" /> Incorrect
-                                </span>
-                              )
-                            )}
-                          </div>
-                          <span className="text-[10px] font-mono font-bold uppercase bg-slate-200 text-slate-700 px-2 py-0.5 rounded">
-                            Topic: {q.topic}
-                          </span>
-                        </div>
-
-                        <div className="space-y-2">
-                          {q.options.map((opt, optIdx) => {
-                            const isThisOptionChosen = chosen === opt;
-                            const isThisOptionCorrect = opt.trim().toLowerCase() === q.answer.trim().toLowerCase();
-
-                            let optionStyle = "border-slate-200 bg-white text-slate-700 hover:border-slate-300";
-                            if (quizSubmitted) {
-                              if (isThisOptionCorrect) {
-                                optionStyle = "border-emerald-500 bg-emerald-100 text-emerald-900 font-bold ring-1 ring-emerald-500";
-                              } else if (isThisOptionChosen && !isThisOptionCorrect) {
-                                optionStyle = "border-rose-500 bg-rose-100 text-rose-900 font-bold line-through";
-                              } else {
-                                optionStyle = "border-slate-200 bg-slate-50 text-slate-400 opacity-60";
-                              }
-                            } else if (isThisOptionChosen) {
-                              optionStyle = "border-blue-600 bg-blue-50 text-blue-900 font-medium";
-                            }
-
-                            return (
-                              <label
-                                key={optIdx}
-                                className={cn(
-                                  "flex items-center gap-3 rounded-lg border p-3 text-xs transition-all",
-                                  quizSubmitted ? "cursor-not-allowed" : "cursor-pointer",
-                                  optionStyle
-                                )}
-                              >
-                                <input
-                                  type="radio"
-                                  name={`q-${q.id}`}
-                                  disabled={quizSubmitted}
-                                  checked={isThisOptionChosen}
-                                  onChange={() => {
-                                    if (!quizSubmitted) {
-                                      setQuizAnswers(prev => ({ ...prev, [q.id]: opt }));
-                                    }
-                                  }}
-                                  className="text-blue-600 focus:ring-blue-500 disabled:opacity-50"
-                                />
-                                <span>{opt}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-200">
-                    {!quizSubmitted ? (
-                      <Button onClick={() => setQuizSubmitted(true)} className="bg-blue-600 text-white text-xs">
-                        Submit Quiz Answers
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={() => {
-                          setQuizSubmitted(false);
-                          setQuizAnswers({});
-                        }}
-                        variant="outline"
-                        className="text-xs text-slate-700 hover:bg-slate-100"
-                      >
-                        Retake Quiz
-                      </Button>
-                    )}
-
-                    {quizSubmitted && (
-                      <div className="inline-flex items-center gap-2 bg-emerald-600 text-white font-bold text-sm px-4 py-2 rounded-lg shadow-sm border border-emerald-700">
-                        <CheckCircle2 className="h-4 w-4" />
-                        <span>Score: {quizScore} / {EXP2_QUIZ_BANK.length} ({((quizScore / EXP2_QUIZ_BANK.length) * 100).toFixed(0)}%)</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+            <div className="space-y-4">
+              <LabCard title="Exercise" icon={Layers}>
+                <p className="text-sm leading-relaxed text-slate-600">
+                  Answer from the test-management simulation. Use Try Yourself, Check Answer, and Show Explanation on each card.
+                </p>
               </LabCard>
+              <LabQuizCards
+                questions={EXP2_QUIZ_BANK.map((q) => ({
+                  id: q.id,
+                  prompt: `${q.prompt} (${q.topic})`,
+                  expected: q.answer,
+                  explain: `Expected: ${q.answer}.`,
+                  options: q.options,
+                }))}
+                onStatusChange={(s) => {
+                  if (s.allChecked) setQuizSubmitted(true);
+                  setQuizScore(s.correct);
+                }}
+              />
             </div>
           )}
 
           {/* CONCLUSION TAB */}
           {activeTab === "conclusion" && (
-            <div className="space-y-6">
+            <ConclusionQuizGate
+              paragraphs={[
+                "Requirement traceability, test-case authoring, and execution completeness were measured from the student-authored suite.",
+                "A coverage gap remains wherever a requirement has no linked case. Blocked runs are not Fail evidence.",
+              ]}
+              questions={EXP2_CONCLUSION_QUIZ}
+              quizTitle="Experiment 2 — Conclusion quiz"
+              locked={!quizSubmitted || !activeProject}
+              lockHint={
+                !activeProject
+                  ? "Create a project in Simulation first, then complete every question in the Exercise tab."
+                  : "Complete every question in the Exercise tab, then return here to take the quiz."
+              }
+              originOptions={[
+                { value: "own", label: "Own project" },
+                { value: "sample", label: "Lab sample" },
+                { value: "github", label: "GitHub project" },
+              ]}
+              footnote="Test Case Management (Exercise 2)."
+              studentSeed={{ title: "Test Case Management (Kiwi TCMS)", origin: "own" }}
+              onDownload={async (s, result) => {
+                if (!activeProject) return;
+                const { downloadUnifiedLabPdf } = await import("@/lib/reportPdf");
+                await downloadUnifiedLabPdf({
+                  experimentNumber: 2,
+                  experimentTitle: "Test Case Management",
+                  names: s.names,
+                  regs: s.regs,
+                  projectTitle: s.title,
+                  origin: s.origin,
+                  description: s.description,
+                  toolNote: `Project ${activeProject.name}.`,
+                  resultLines: [
+                    `Requirements ${currentReqs.length}, test cases ${currentTcs.length}, maturity ${currentMetrics.maturity_score}/100.`,
+                  ],
+                  analysisLines: [
+                    "Requirement traceability, test-case authoring, and execution completeness were measured from the student-authored suite.",
+                  ],
+                  conclusion:
+                    "Requirement traceability, test-case authoring, and execution completeness were measured from the student-authored suite.",
+                  quizScore: result.score,
+                  quizTotal: result.total,
+                });
+              }}
+            />
+          )}
+          {false && (
+            <div className="space-y-6 hidden">
               <LabCard title="Generate Lab Report" icon={Download}>
                 <ReportDownloadBar
-                  disabled={!quizSubmitted || !activeProject}
+                  disabled={!quizSubmitted || !conclusionQuizDone || !activeProject}
                   exporting={exporting}
                   onDownload={() => {
                     void (async () => {
@@ -1108,8 +1172,10 @@ export function TestCaseManagementPage() {
                     !activeProject
                       ? "Create a project in Simulation first."
                       : !quizSubmitted
-                        ? "Complete the Assessment Quiz in Exercise before downloading the PDF."
-                        : `Project: ${activeProject.name} · maturity ${currentMetrics.maturity_score}/100`
+                        ? "Check every Exercise question first."
+                        : !conclusionQuizDone
+                          ? "Check every conclusion-quiz question first."
+                          : `Project: ${activeProject.name} · maturity ${currentMetrics.maturity_score}/100`
                   }
                 />
                 <ReportStudentFields

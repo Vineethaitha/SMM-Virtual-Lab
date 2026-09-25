@@ -28,6 +28,7 @@ import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EXPERIMENTS } from "@/data/experiments";
+import { FinalLabQuizButton } from "@/components/quiz/ConclusionQuizGate";
 import { SrmOfficialLogo, SrmvlLogo } from "@/components/brand/SrmLogos";
 import { cn } from "@/lib/utils";
 
@@ -47,39 +48,55 @@ const ICONS: Record<string, LucideIcon> = {
 const SYLLABUS = [
   {
     unit: 1,
-    title: "Product metrics & static analysis",
+    title: "Introduction",
     topics: [
-      "LOC, SLOC, LLOC and size interpretation",
-      "McCabe cyclomatic complexity and control-flow graphs",
-      "Halstead metrics and Maintainability Index",
-      "Identifying complex functions and refactoring with before/after comparison",
+      "Software sizing metrics, fundamentals of measurement, and basic measures",
+      "Reliability and validity, measurement errors, and assessing reliability",
+      "Evolution of software metrics and functional size measurement (including the cost of counting function points)",
+      "Measures and metrics not based on function points, and future technical developments in functional metrics",
+      "Case study: measure software size using various size metrics",
     ],
   },
   {
     unit: 2,
-    title: "Test management & quality surveys",
+    title: "Metrics and Models",
     topics: [
-      "Test-case design, execution, and coverage in Kiwi TCMS",
-      "Customer satisfaction as a quality metric",
-      "Survey design, administration, and analysis",
+      "Complexity metrics and models: lines of code, Halstead’s software science, and cyclomatic complexity",
+      "Syntactic constructs and structure metrics, with a case study on using complexity metrics with tools",
+      "Testing metrics: test-progress S-curve, testing defect arrivals over time, and product size over time",
+      "CPU utilization and the effort/outcome model, with a case study applying testing metrics",
     ],
   },
   {
     unit: 3,
-    title: "Object-oriented metrics",
+    title: "Sampling Methods",
     topics: [
-      "Class size, cohesion, coupling, and response set",
-      "CK suite: WMC, DIT, NOC, CBO, RFC, LCOM",
-      "Tool-based collection with CK and SonarCloud",
+      "Customer satisfaction surveys: methods of survey data collection and analysing satisfaction in practice",
+      "Satisfaction with company terms and metrics for object-oriented projects with tools",
+      "OO concepts and constructs; design and complexity metrics; Lorenz metrics and rules of thumb",
+      "The CK object-oriented metrics suite and productivity metrics, with a case study using OO metrics tools",
     ],
   },
   {
     unit: 4,
-    title: "Requirements, maintenance & process",
+    title: "Software Quality Model",
     topics: [
-      "Requirement ambiguity and inspection comments",
-      "Corrective, adaptive, perfective, and preventive maintenance",
-      "Reliability, defect density, and process capability (CPI)",
+      "Software quality and five steps to software quality control",
+      "Product quality metrics and in-process quality metrics in practice",
+      "Metrics for software maintenance and Ishikawa’s seven basic tools",
+      "Defect-removal effectiveness and the Rayleigh model",
+      "Reliability growth models: Jelinski–Moranda, Goel–Okumoto, and Musa–Okumoto",
+    ],
+  },
+  {
+    unit: 5,
+    title: "Software Process Assessment",
+    topics: [
+      "Conducting in-process quality assessments: preparation, evaluation, and summarization",
+      "Software project assessments, audit versus assessment, and process-maturity assessment",
+      "The software process assessment cycle and measures used by industry leaders",
+      "Measures, metrics, innovation, and outsourcing litigation",
+      "Software process improvement sequences; measuring process maturity and process capability",
     ],
   },
 ];
@@ -227,8 +244,8 @@ export function HomePage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            Interactive labs for size, complexity, object-oriented quality, testing, and process
-            measurement — with live workbenches for experiments 1 through 7.
+            Interactive labs for size, complexity, object-oriented quality, testing, maintenance,
+            reliability, and process measurement — with live workbenches for all ten experiments.
           </motion.p>
           <motion.div
             className="flex flex-col items-center justify-center gap-4 sm:flex-row"
@@ -290,8 +307,8 @@ export function HomePage() {
               Hands-on learning
             </motion.h2>
             <motion.p variants={itemVariants} className="mx-auto max-w-2xl text-muted-foreground">
-              Ten experiments mapped to the course. Experiments 1 through 7 are live; 8–10 open a
-              Coming Soon page until they are built.
+              Ten experiments mapped to the 21CSC403T syllabus. Each lab includes aim, objective,
+              theory, procedure, a sample simulation, results, exercise, and conclusion.
             </motion.p>
           </div>
 
@@ -452,6 +469,19 @@ export function HomePage() {
                 </Card>
               </motion.div>
             ))}
+          </div>
+        </div>
+      </Section>
+
+      <Section className="border-t border-border bg-slate-50 py-16">
+        <div className="mx-auto max-w-2xl px-4 text-center">
+          <h2 className="mb-2 text-2xl font-bold">After all ten experiments</h2>
+          <p className="mb-6 text-sm text-muted-foreground">
+            Forty shuffled questions (MCQ, numericals, and new case studies). Fullscreen until you finish —
+            leaving early voids the report.
+          </p>
+          <div className="flex justify-center">
+            <FinalLabQuizButton />
           </div>
         </div>
       </Section>

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import type { ComponentType } from "react";
 import {
@@ -6,7 +6,6 @@ import {
   BarChart3,
   BookOpen,
   ClipboardList,
-  FlaskConical,
   GitCompare,
   Lightbulb,
   ListChecks,
@@ -22,8 +21,10 @@ import { CodeWorkspace } from "@/components/editor/CodeWorkspace";
 import { ExercisePanel } from "@/components/exercise/ExercisePanel";
 import { InsightsList, MetricsDashboard } from "@/components/metrics/Dashboard";
 import { Pipeline } from "@/components/pipeline/Pipeline";
-import { ComparisonPanel, ReportPanel } from "@/components/report/ReportPanel";
+import { ComparisonPanel } from "@/components/report/ReportPanel";
+import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
 import { LabCard, LabFormula, LabInfoBox, LabStepList, LabThresholds } from "@/components/lab/LabCard";
+import { LabHeroHeader } from "@/components/layout/LabHeroHeader";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
 import { NAV } from "@/content/labCopy";
 import { cn } from "@/lib/utils";
@@ -38,7 +39,7 @@ const NAV_ICONS: Record<LabSection, ComponentType<{ className?: string }>> = {
   exercise: ListChecks,
   simulation: Play,
   results: BarChart3,
-  analysis: FlaskConical,
+  analysis: BarChart3,
   comparison: GitCompare,
   conclusion: FileText,
 };
@@ -58,10 +59,123 @@ const PROCEDURE_STEPS = [
   "Compare BEFORE → AFTER percentages. Complete Exercise questions. Generate the report from Conclusion.",
 ];
 
+const EXP1_CONCLUSION_QUIZ = [
+  {
+    id: "c1",
+    prompt: "McCabe cyclomatic complexity counts:",
+    expected: "Independent paths through a function",
+    explain: "M = E − N + 2P. Each predicate adds a path that should be tested.",
+    options: ["Physical lines only", "Independent paths through a function", "Halstead operands", "Comment density"],
+  },
+  {
+    id: "c2",
+    prompt: "Halstead effort E is defined as:",
+    expected: "Difficulty × Volume",
+    explain: "E = D × V, where V = N log₂(η) and D uses unique operators and operands.",
+    options: ["LOC × CC", "Difficulty × Volume", "MI × SLOC", "Edges − nodes"],
+  },
+  {
+    id: "c3",
+    prompt: "This lab computes metrics by:",
+    expected: "Parsing Python in the browser without executing it",
+    explain: "Static analysis never evals student code.",
+    options: [
+      "Running the module as a process",
+      "Parsing Python in the browser without executing it",
+      "Uploading to SonarCloud only",
+      "Counting story points",
+    ],
+  },
+  {
+    id: "c4",
+    prompt: "In McCabe’s formula M = E − N + 2P, P usually stands for:",
+    expected: "The number of connected components (often 1 for a single function)",
+    explain: "For one connected control-flow graph, P = 1, so M = E − N + 2.",
+    options: [
+      "Python version",
+      "The number of connected components (often 1 for a single function)",
+      "Comment percentage",
+      "Halstead unique operands",
+    ],
+  },
+  {
+    id: "c5",
+    prompt: "A function with many nested if/else branches typically shows:",
+    expected: "Higher cyclomatic complexity and more test paths",
+    explain: "Each independent decision adds a path that should be covered.",
+    options: [
+      "Lower Halstead volume only",
+      "Higher cyclomatic complexity and more test paths",
+      "Zero SLOC",
+      "A perfect Maintainability Index by definition",
+    ],
+  },
+  {
+    id: "c6",
+    prompt: "Halstead volume V is computed from:",
+    expected: "Program length N and vocabulary η as N log₂(η)",
+    explain: "V = N × log₂(η), with N = N1 + N2 and η = η1 + η2.",
+    options: [
+      "Only comment lines",
+      "Program length N and vocabulary η as N log₂(η)",
+      "Edges minus nodes",
+      "Story points × velocity",
+    ],
+  },
+  {
+    id: "c7",
+    prompt: "The Maintainability Index in this lab is useful because it:",
+    expected: "Combines size, complexity, and Halstead volume into one 0–100-style score",
+    explain: "MI lets you compare before/after refactoring at a glance, not replace the other metrics.",
+    options: [
+      "Replaces the need for any other metric",
+      "Combines size, complexity, and Halstead volume into one 0–100-style score",
+      "Counts only failed test cases",
+      "Is the same as Cpk",
+    ],
+  },
+  {
+    id: "c8",
+    prompt: "Why save a baseline before refactoring?",
+    expected: "So the comparison tab can show real before vs after metric deltas",
+    explain: "Without a saved AnalysisResult, you cannot prove the refactor improved CC, MI, or volume.",
+    options: [
+      "To delete the source file",
+      "So the comparison tab can show real before vs after metric deltas",
+      "Because COCOMO requires it",
+      "To skip the quiz",
+    ],
+  },
+  {
+    id: "c9",
+    prompt: "Physical LOC that includes blanks and comments is a weaker size signal than SLOC because:",
+    expected: "Formatting and comments inflate the count without adding executable logic",
+    explain: "SLOC / logical lines better track delivered logic; comments still matter for MI separately.",
+    options: [
+      "Formatting and comments inflate the count without adding executable logic",
+      "Comments are illegal in Python",
+      "SLOC is always equal to cyclomatic complexity",
+      "Blanks increase Halstead unique operators",
+    ],
+  },
+  {
+    id: "c10",
+    prompt: "A practical first refactor when CC is high is to:",
+    expected: "Extract predicates / flatten nests and re-analyze",
+    explain: "Smaller functions with fewer decisions drop path count; then confirm with a second run.",
+    options: [
+      "Add more global variables",
+      "Extract predicates / flatten nests and re-analyze",
+      "Increase nesting to hide branches",
+      "Delete the unit tests",
+    ],
+  },
+];
+
 export function LabShell() {
   const { section, setSection, analyze, analyzing, saveBaseline, analysis, error, sim, baseline } =
     useLab();
-
+  const [exerciseDone, setExerciseDone] = useState(false);
   const skipScroll = useRef(true);
   useEffect(() => {
     if (skipScroll.current) {
@@ -75,27 +189,11 @@ export function LabShell() {
     <div className="flex min-h-screen flex-col bg-slate-100 lg:flex-row">
       <ExperimentSidebar />
       <div className="min-w-0 flex-1">
-        <div className="relative overflow-hidden bg-gradient-to-br from-blue-800 via-blue-600 to-blue-500 text-white">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
-          <div className="pointer-events-none absolute -left-8 bottom-0 h-32 w-32 rounded-full bg-white/5 blur-xl" />
-          <div className="relative px-4 py-5 sm:px-6 sm:py-6 lg:px-10">
-            <div className="mb-2 flex items-center gap-2 text-xs text-white/70">
-              <span>Experiments</span>
-              <span>/</span>
-              <span className="font-medium text-white">Software Code Metrics Analysis</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/15 px-2.5 py-0.5 text-[11px] font-medium">
-                Experiment 1
-              </span>
-              <h1 className="text-xl font-bold sm:text-2xl">Software Code Metrics Analysis</h1>
-            </div>
-            <p className="mt-1.5 max-w-3xl text-sm text-white/85">
-              Measure LOC, cyclomatic complexity, Halstead metrics, and the Maintainability Index — then
-              refactor and compare before vs after.
-            </p>
-          </div>
-        </div>
+        <LabHeroHeader
+          experimentNumber={1}
+          title="Software Code Metrics Analysis"
+          subtitle="Measure LOC, cyclomatic complexity, Halstead metrics, and the Maintainability Index — then refactor and compare before vs after."
+        />
 
         <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 shadow-sm backdrop-blur">
           <div className="flex gap-1.5 overflow-x-auto px-4 py-2.5 sm:px-6 lg:px-10">
@@ -136,6 +234,8 @@ export function LabShell() {
               saveBaseline={saveBaseline}
               analysisReady={!!analysis}
               error={error}
+              exerciseDone={exerciseDone}
+              onExerciseDone={() => setExerciseDone(true)}
               simPlay={() => {
                 setSection("simulation");
                 sim.reset();
@@ -157,6 +257,8 @@ function SectionBody({
   saveBaseline,
   analysisReady,
   error,
+  exerciseDone,
+  onExerciseDone,
   simPlay,
   baselineSaved,
 }: {
@@ -166,9 +268,12 @@ function SectionBody({
   saveBaseline: () => void;
   analysisReady: boolean;
   error: string | null;
+  exerciseDone: boolean;
+  onExerciseDone: () => void;
   simPlay: () => void;
   baselineSaved: boolean;
 }) {
+  const { analysis, baseline } = useLab();
   if (section === "aim") {
     return (
       <LabCard title="Aim" icon={Target}>
@@ -232,6 +337,9 @@ function SectionBody({
           <div className="mb-3 space-y-1.5">
             <LabFormula>M = E − N + 2P</LabFormula>
             <LabFormula>M ≈ number of decision points + 1</LabFormula>
+            <p className="text-xs text-slate-500">
+              M = cyclomatic complexity; E = CFG edges; N = CFG nodes; P = connected components (1 for a single function).
+            </p>
           </div>
           <LabThresholds
             caption="Laboratory thresholds (McCabe ranks, simplified for this experiment):"
@@ -256,6 +364,10 @@ function SectionBody({
             <LabFormula>V = N × log₂(η)</LabFormula>
             <LabFormula>D = (η1 / 2) × (N2 / η2)</LabFormula>
             <LabFormula>E = D × V</LabFormula>
+            <p className="text-xs text-slate-500">
+              η1 / η2 = unique operators / operands; N1 / N2 = total operator / operand tokens; η = vocabulary;
+              N = length; V = volume; D = difficulty; E = effort.
+            </p>
           </div>
           <LabThresholds
             caption="Laboratory reading (what each term measures):"
@@ -398,7 +510,12 @@ function SectionBody({
   }
 
   if (section === "results") {
-    return <MetricsDashboard />;
+    return (
+      <div className="space-y-4">
+        <MetricsDashboard />
+        <InsightsList />
+      </div>
+    );
   }
 
   if (section === "exercise") {
@@ -409,21 +526,11 @@ function SectionBody({
             Answer questions from the live analysis. Refactor, re-analyze, then compare.
           </p>
         </LabCard>
-        <ExercisePanel />
-      </div>
-    );
-  }
-
-  if (section === "analysis") {
-    return (
-      <div className="space-y-4">
-        <LabCard title="Analysis" icon={FlaskConical}>
-          <p className="text-sm leading-relaxed text-slate-600">
-            Which functions are highly complex, and why? How does LOC relate to CC? What do Halstead volume
-            and effort say about review cost?
-          </p>
-        </LabCard>
-        <InsightsList />
+        <ExercisePanel
+          onStatusChange={(s) => {
+            if (s.allChecked) onExerciseDone();
+          }}
+        />
       </div>
     );
   }
@@ -442,17 +549,68 @@ function SectionBody({
   }
 
   return (
-    <div className="space-y-4">
-      <LabCard title="Conclusion" icon={FileText}>
-        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
-          <p>Size, path count, and operator/operand effort are complementary views of quality.</p>
-          <p>
-            Metrics guide refactoring: extract predicates, flatten nests, shrink vocabulary — then verify
-            with a second analysis run.
-          </p>
-        </div>
-      </LabCard>
-      <ReportPanel />
-    </div>
+    <ConclusionQuizGate
+      paragraphs={[
+        "Size, path count, and operator/operand effort are complementary views of quality.",
+        "Metrics guide refactoring: extract predicates, flatten nests, shrink vocabulary — then verify with a second analysis run.",
+      ]}
+      questions={EXP1_CONCLUSION_QUIZ}
+      quizTitle="Experiment 1 — Conclusion quiz"
+      locked={!analysis || !exerciseDone}
+      lockHint={
+        !analysis
+          ? "Analyze Code in Simulation first, then complete every question in the Exercise tab."
+          : "Complete every question in the Exercise tab, then return here to take the quiz."
+      }
+      originOptions={[
+        { value: "sample", label: "Lab sample / own snippet" },
+        { value: "own", label: "Own project" },
+        { value: "github", label: "GitHub project" },
+      ]}
+      footnote="Programming language: Python (Exercise 1)."
+      studentSeed={{ title: "Software Code Metrics Analysis", origin: "sample", description: "Python module analyzed in 21CSC403T Virtual Lab Exercise 1." }}
+      onDownload={async (student, result) => {
+        if (!analysis) return;
+        const rows = analysis && baseline ? (await import("@/lib/compare")).compareAnalyses(baseline, analysis) : [];
+        const { downloadUnifiedLabPdf } = await import("@/lib/reportPdf");
+        await downloadUnifiedLabPdf({
+          experimentNumber: 1,
+          experimentTitle: "Software Code Metrics Analysis",
+          names: student.names,
+          regs: student.regs,
+          projectTitle: student.title,
+          origin: student.origin,
+          github: student.github,
+          description: student.description,
+          toolNote: "Browser static analyzer (LOC, CC, Halstead, MI). Code is never executed.",
+          resultLines: [
+            `LOC ${analysis.loc.loc} / SLOC ${analysis.loc.sloc} / LLOC ${analysis.loc.lloc}`,
+            `Halstead V ${analysis.halstead.volume.toFixed(2)} D ${analysis.halstead.difficulty.toFixed(2)} E ${analysis.halstead.effort.toFixed(2)}`,
+            `MI ${analysis.maintainability.mi} (${analysis.maintainability.rank})`,
+            ...analysis.functions.map((f) => `${f.qualified_name} CC=${f.cc} rank=${f.rank}`),
+          ],
+          analysisLines: analysis.insights.map((i) => `${i.title}: ${i.detail}`),
+          conclusion:
+            "Static metrics make complexity visible, guide refactoring, and provide evidence of improvement when before/after values move in the right direction.",
+          quizScore: result.score,
+          quizTotal: result.total,
+          tables:
+            rows.length > 0
+              ? [
+                  {
+                    title: "Before / after",
+                    head: ["Metric", "Before", "After", "%"],
+                    rows: rows.map((r) => [
+                      r.label,
+                      String(r.before ?? "-"),
+                      String(r.after ?? "-"),
+                      r.pct == null ? "-" : `${r.pct.toFixed(1)}%`,
+                    ]),
+                  },
+                ]
+              : undefined,
+        });
+      }}
+    />
   );
 }
