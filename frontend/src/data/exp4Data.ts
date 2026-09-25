@@ -41,7 +41,6 @@ export type Exp4Tab =
   | "exercise"
   | "simulation"
   | "results"
-  | "analysis"
   | "comparison"
   | "conclusion";
 
@@ -53,7 +52,6 @@ export const EXP4_TABS: { id: Exp4Tab; label: string }[] = [
   { id: "exercise", label: "Exercise" },
   { id: "simulation", label: "Simulation" },
   { id: "results", label: "Results" },
-  { id: "analysis", label: "Analysis" },
   { id: "comparison", label: "Comparison" },
   { id: "conclusion", label: "Conclusion" },
 ];

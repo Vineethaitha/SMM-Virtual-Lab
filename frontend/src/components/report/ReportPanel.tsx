@@ -69,7 +69,13 @@ export function ComparisonPanel() {
   );
 }
 
-export function ReportPanel() {
+export function ReportPanel({
+  exerciseDone = true,
+  quizDone = true,
+}: {
+  exerciseDone?: boolean;
+  quizDone?: boolean;
+}) {
   const { analysis, baseline } = useLab();
   const [student, setStudent] = useState<ReportStudentForm>({
     names: "",
@@ -91,8 +97,14 @@ export function ReportPanel() {
   const rows = analysis && baseline ? compareAnalyses(baseline, analysis) : [];
   const form = { ...student, justification, refactor, conclusion };
 
+  const canDownload =
+    Boolean(analysis) &&
+    exerciseDone &&
+    quizDone &&
+    Boolean(student.names.trim() && student.regs.trim());
+
   const exportPdf = async () => {
-    if (!analysis) return;
+    if (!analysis || !canDownload) return;
     setExporting(true);
     try {
       const { downloadReportPdf } = await import("@/lib/reportPdf");
@@ -107,13 +119,19 @@ export function ReportPanel() {
       <LabCard title="Generate Lab Report" icon={Download}>
         <ReportDownloadBar
           buttonId="exp1-download-report"
-          disabled={!analysis}
+          disabled={!canDownload}
           exporting={exporting}
           onDownload={() => void exportPdf()}
           hint={
             !analysis
               ? "Run Analyze Code in Simulation first — the PDF embeds your live metrics."
-              : undefined
+              : !exerciseDone
+                ? "Check every Exercise question first."
+                : !quizDone
+                  ? "Check every conclusion-quiz question first."
+                  : !student.names.trim() || !student.regs.trim()
+                    ? "Enter name(s) and registration number(s)."
+                    : undefined
           }
         />
         <ReportStudentFields

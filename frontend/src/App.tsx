@@ -5,6 +5,9 @@ import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { HomePage } from "@/pages/HomePage";
 import { Exp6Shell } from "@/pages/Exp6Shell";
 import { Exp7Shell } from "@/pages/Exp7Shell";
+import { Exp8Shell } from "@/pages/Exp8Shell";
+import { Exp9Shell } from "@/pages/Exp9Shell";
+import { Exp10Shell } from "@/pages/Exp10Shell";
 import { CustomerSatisfactionPage } from "@/pages/CustomerSatisfactionPage";
 import { ObjectOrientedMetricsPage } from "@/pages/ObjectOrientedMetricsPage";
 import { TestCaseManagementPage } from "@/pages/TestCaseManagementPage";
@@ -31,6 +34,9 @@ function ExperimentGate() {
   if (expId === 5) return <ObjectOrientedMetricsPage />;
   if (expId === 6) return <Exp6Shell />;
   if (expId === 7) return <Exp7Shell />;
+  if (expId === 8) return <Exp8Shell />;
+  if (expId === 9) return <Exp9Shell />;
+  if (expId === 10) return <Exp10Shell />;
   return <LabRoute />;
 }
 

@@ -8,7 +8,6 @@ export const NAV: { id: LabSection; label: string }[] = [
   { id: "simulation", label: "Simulation" },
   { id: "exercise", label: "Exercise" },
   { id: "results", label: "Results" },
-  { id: "analysis", label: "Analysis" },
   { id: "comparison", label: "Comparison" },
   { id: "conclusion", label: "Conclusion" },
 ];

@@ -29,6 +29,8 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { LabQuizCards } from "@/components/exercise/LabQuizCards";
+import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
 import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
 import {
   LabCard,
@@ -38,11 +40,6 @@ import {
   LabStepList,
   LabThresholds,
 } from "@/components/lab/LabCard";
-import {
-  ReportDownloadBar,
-  ReportStudentFields,
-  type ReportStudentForm,
-} from "@/components/lab/ReportForm";
 import { cn } from "@/lib/utils";
 
 const OPTION_IDLE =
@@ -775,213 +772,223 @@ const EXQ: ExerciseQ[] = [
     explanation: "A non-functional requirement must include measurable acceptance criteria (e.g., latency percentile, concurrent user count). Without these, the requirement cannot be verified through testing — it is vague.",
   },
   {
-    id: 4, type: "short",
-    text: "R-19 states 'The system shall maintain logs of all activities.' Identify at least three specific pieces of information missing from this requirement and explain why each is necessary.",
-    answer: "Three missing pieces: (1) Scope of 'all activities' — must enumerate event categories (authentication, data writes, report generation, errors) to avoid ambiguity about what is logged. (2) Retention period — necessary to define storage requirements, compliance obligations, and when log data may be purged. (3) Access control on logs — required to prevent unauthorised inspection of sensitive audit trails; must specify which roles may read log data. Additional missing items include log format (structured vs. plain-text) and tamper-evidence mechanism.",
-    explanation: "",
+    id: 4, type: "mcq",
+    text: "R-19 says “The system shall maintain logs of all activities.” Which set is missing and makes the requirement incomplete?",
+    options: [
+      "Logged event types, retention period, and who may read the logs",
+      "Only the programming language",
+      "Only the Halstead volume",
+      "A Cpk target",
+    ],
+    answer: "Logged event types, retention period, and who may read the logs",
+    explanation:
+      "Without scope, retention, and access control, testers cannot verify the logging shall.",
   },
   {
-    id: 5, type: "short",
-    text: "Rewrite R-8 ('The system should be fast and responsive') as a well-formed, verifiable non-functional requirement.",
-    answer: "The system shall return any attendance-marking API response within 500 milliseconds at the 99th percentile under a sustained concurrent load of 300 users. The student-facing dashboard shall achieve an initial page-load time of no more than 2 seconds on a 10 Mbps connection, as measured by a synthetic monitoring tool in the production environment.",
-    explanation: "",
+    id: 5, type: "mcq",
+    text: "Which rewrite of R-8 is a verifiable non-functional requirement?",
+    options: [
+      "The system shall return the attendance-marking API within 500 ms at p99 under 300 concurrent users",
+      "The system should feel fast",
+      "The system shall be user-friendly",
+      "The system should be responsive whenever possible",
+    ],
+    answer: "The system shall return the attendance-marking API within 500 ms at p99 under 300 concurrent users",
+    explanation: "A time limit, percentile, and load make the statement testable.",
   },
   {
-    id: 6, type: "short",
-    text: "Define 'incompleteness' in the context of requirements quality (IEEE 29148) and cite two requirements from the dataset that exhibit this defect. Justify each selection.",
-    answer: "A requirement is incomplete when it omits information necessary to fully specify the intended system behaviour — such as preconditions, postconditions, actor identities, boundary values, or error-handling paths (IEEE 29148 §5.2.5). R-3 is incomplete because the permissible time window for marking attendance, the valid status values (present/absent/late/excused), and the amendment policy are all absent. R-16 is incomplete because the approval workflow, required fields, submission deadline, and the effect of approved leave on the attendance percentage are unspecified.",
-    explanation: "",
+    id: 6, type: "mcq",
+    text: "Which pair from the sample is primarily incomplete (missing window, statuses, or workflow details)?",
+    options: [
+      "R-3 (attendance marking) and R-16 (leave approval)",
+      "R-2 (login page) and R-7 (view attendance)",
+      "R-11 and R-14 only as a conflict, not incompleteness",
+      "R-17 (24/7 availability) and R-2",
+    ],
+    answer: "R-3 (attendance marking) and R-16 (leave approval)",
+    explanation:
+      "R-3 omits the marking window and status values; R-16 omits the approval workflow and deadlines.",
   },
 ];
 
-function ExercisePanel() {
-  const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [submitted, setSubmitted] = useState<Record<number, boolean>>({});
-  const [modelShown, setModelShown] = useState<Record<number, boolean>>({});
+const CONCLUSION_QUIZ = [
+  {
+    id: "c1",
+    prompt: "Per IEEE 29148 / RFC 2119, which word marks a mandatory requirement?",
+    expected: "shall",
+    explain: "'Shall' is mandatory. 'Should' is a recommendation and can make a requirement optional.",
+    options: ["should", "shall", "may", "could"],
+  },
+  {
+    id: "c2",
+    prompt: "A requirement that cannot be tested because it uses words such as 'fast' is primarily:",
+    expected: "Vague",
+    explain: "Vague quantifiers lack measurable acceptance criteria.",
+    options: ["Complete", "Traceable", "Vague", "Ranked"],
+  },
+  {
+    id: "c3",
+    prompt: "Two statements that cannot both be true at once are:",
+    expected: "Conflicting",
+    explain: "Conflicts are direct or indirect contradictions between requirements.",
+    options: ["Incomplete", "Conflicting", "Modifiable", "Traced"],
+  },
+  {
+    id: "c4",
+    prompt: "Per RFC 2119, “should” in a requirement usually means:",
+    expected: "A recommendation, not a strict mandate",
+    explain: "Should/may are weaker than shall; they can be waived with justification.",
+    options: [
+      "The same as shall",
+      "A recommendation, not a strict mandate",
+      "A test verdict",
+      "A function-point type",
+    ],
+  },
+  {
+    id: "c5",
+    prompt: "An incomplete requirement typically:",
+    expected: "Omits actors, data, or acceptance criteria needed to implement and test it",
+    explain: "If testers cannot tell pass from fail, the statement is not ready.",
+    options: [
+      "Has a unique id and a measurable limit",
+      "Omits actors, data, or acceptance criteria needed to implement and test it",
+      "Is always a conflict",
+      "Must use the word maybe",
+    ],
+  },
+  {
+    id: "c6",
+    prompt: "A requirement is testable when:",
+    expected: "You can state an observable pass/fail criterion",
+    explain: "Measurable limits, roles, and conditions make verification possible.",
+    options: [
+      "It uses only adjectives such as user-friendly",
+      "You can state an observable pass/fail criterion",
+      "It has no identifier",
+      "It contradicts another shall",
+    ],
+  },
+  {
+    id: "c7",
+    prompt: "Traceability of a requirement means:",
+    expected: "You can follow it to design, code, and test cases (and back)",
+    explain: "Ids and links prevent orphan needs and orphan tests.",
+    options: [
+      "The text is written twice",
+      "You can follow it to design, code, and test cases (and back)",
+      "It contains no verbs",
+      "It is stored only in email",
+    ],
+  },
+  {
+    id: "c8",
+    prompt: "Ambiguous wording is dangerous because:",
+    expected: "Different readers can implement or test different behaviours",
+    explain: "Pronouns, undefined terms, and dual meanings create defects before coding starts.",
+    options: [
+      "It always increases Cpk",
+      "Different readers can implement or test different behaviours",
+      "IEEE requires ambiguity",
+      "It only affects Halstead volume",
+    ],
+  },
+  {
+    id: "c9",
+    prompt: "Ranking or prioritizing requirements helps when:",
+    expected: "Schedule pressure forces a subset to be delivered first",
+    explain: "MoSCoW or similar ranking keeps shall-must items ahead of nice-to-haves.",
+    options: [
+      "Every statement is equally optional",
+      "Schedule pressure forces a subset to be delivered first",
+      "You want to hide conflicts",
+      "You are computing VAF",
+    ],
+  },
+  {
+    id: "c10",
+    prompt: "A good repair for “the system shall be fast” is:",
+    expected: "Replace it with a measurable limit (e.g. p95 response ≤ 2 s under N users)",
+    explain: "Vague quality words become testable non-functionals when quantified.",
+    options: [
+      "Delete all performance needs",
+      "Replace it with a measurable limit (e.g. p95 response ≤ 2 s under N users)",
+      "Change shall to maybe",
+      "Move the sentence to the quiz only",
+    ],
+  },
+];
 
-  const mcqCorrect = EXQ.filter((q) => q.type === "mcq" && submitted[q.id] && answers[q.id] === q.answer).length;
-  const mcqTotal   = EXQ.filter((q) => q.type === "mcq").length;
-  const allMcqDone = EXQ.filter((q) => q.type === "mcq").every((q) => submitted[q.id]);
-
+function ExercisePanel({ onDone }: { onDone: (done: boolean) => void }) {
   return (
     <div className="space-y-4">
-      <LabCard title="Exercise Questions" icon={ClipboardPen}>
-        <p className="text-xs text-slate-500">
-          Q1–Q3 are multiple-choice and auto-scored. Q4–Q6 are short-answer — write your response and compare with the model answer.
+      <LabCard title="Exercise" icon={ClipboardPen}>
+        <p className="text-sm leading-relaxed text-slate-600">
+          Answer from the attendance-app requirement sample. Use Try Yourself, Check Answer, and Show Explanation on each card.
         </p>
       </LabCard>
-
-      {EXQ.map((q) => {
-        const ua = answers[q.id] ?? "";
-        const subm = !!submitted[q.id];
-        const isRight = q.type === "mcq" && ua === q.answer;
-        const mShown = !!modelShown[q.id];
-
-        return (
-          <LabCard key={q.id} title={`Q${q.id}. ${q.text}`}>
-            <div className="space-y-3">
-              {q.type === "mcq" && q.options && (
-                <div className="space-y-2">
-                  {q.options.map((opt, i) => {
-                    let cls = OPTION_IDLE;
-                    if (subm) {
-                      if (opt === q.answer) cls = OPTION_CORRECT;
-                      else if (opt === ua) cls = OPTION_INCORRECT;
-                      else cls = OPTION_MUTED;
-                    } else if (ua === opt) {
-                      cls = OPTION_SELECTED;
-                    }
-                    return (
-                      <button key={opt} type="button" disabled={subm}
-                        onClick={() => setAnswers((a) => ({ ...a, [q.id]: opt }))}
-                        className={cn("block w-full rounded-lg border px-4 py-3 text-left text-sm transition-all", cls)}>
-                        <span className="mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>
-                        {opt}
-                      </button>
-                    );
-                  })}
-                  {!subm && (
-                    <Button size="sm" disabled={!ua} onClick={() => setSubmitted((s) => ({ ...s, [q.id]: true }))}>
-                      Submit Answer
-                    </Button>
-                  )}
-                  {subm && (
-                    <div className={cn(
-                      "flex items-start gap-2 rounded-lg border px-3 py-2 text-xs",
-                      isRight ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-700",
-                    )}>
-                      {isRight ? <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <X className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
-                      <div><strong>{isRight ? "Correct!" : "Incorrect."}</strong> {q.explanation}</div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {q.type === "short" && (
-                <div className="space-y-2">
-                  <textarea rows={4} value={ua}
-                    onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
-                    placeholder="Write your answer here using formal, third-person academic wording…"
-                    className={FIELD_CLASS}
-                  />
-                  <Button size="sm" disabled={!ua} onClick={() => setModelShown((m) => ({ ...m, [q.id]: true }))}>
-                    Show Model Answer
-                  </Button>
-                  {mShown && (
-                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-xs leading-relaxed text-slate-800">
-                      <p className="mb-1 font-semibold text-blue-800">Model Answer</p>
-                      {q.answer}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </LabCard>
-        );
-      })}
-
-      {allMcqDone && (
-        <LabCard title="MCQ Score">
-          <div className="flex items-center gap-4">
-            <div className="w-36">
-              <LabKpiCard
-                label="MCQ Score"
-                value={`${mcqCorrect}/${mcqTotal}`}
-                color={mcqCorrect === mcqTotal ? "green" : "amber"}
-              />
-            </div>
-            <p className="text-sm text-slate-600">
-              {mcqCorrect === mcqTotal
-                ? "Full marks on all multiple-choice questions. Excellent work!"
-                : "Review the highlighted questions and the Theory section for clarification."}
-            </p>
-          </div>
-        </LabCard>
-      )}
+      <LabQuizCards
+        questions={EXQ.map((q) => ({
+          id: String(q.id),
+          prompt: q.text,
+          expected: q.answer,
+          explain: q.explanation || q.answer,
+          options: q.options,
+        }))}
+        onStatusChange={(s) => {
+          if (s.allChecked) onDone(true);
+        }}
+      />
     </div>
   );
 }
 
-function ConclusionPanel() {
-  const [student, setStudent] = useState<ReportStudentForm>({
-    names: "",
-    regs: "",
-    title: "Requirement Ambiguity Analysis",
-    origin: "sample",
-    github: "",
-    description: "Requirement review completed in 21CSC403T Virtual Lab Exercise 7.",
-  });
-  const [exporting, setExporting] = useState(false);
-  const canDownload = student.names.trim().length > 0 && student.regs.trim().length > 0;
+function ConclusionPanel({ exerciseDone }: { exerciseDone: boolean }) {
   const issueCounts = (["Ambiguous", "Incomplete", "Conflicting", "Vague"] as IssueTag[]).map((tag) => ({
     tag,
     count: REQUIREMENTS.filter((r) => r.issues.includes(tag)).length,
   }));
-
-  async function handleDownload() {
-    if (!canDownload) return;
-    setExporting(true);
-    try {
-      const { downloadExp7Pdf } = await import("@/lib/reportPdf");
-      await downloadExp7Pdf({
-        names: student.names,
-        regs: student.regs,
-        title: student.title,
-        origin: student.origin,
-        github: student.github,
-        description: student.description,
-        conclusion: COPY.conclusion.body.join(" "),
-        issueCounts,
-        requirements: REQUIREMENTS.map((r) => ({
-          id: r.id,
-          statement: r.statement,
-          issues: r.issues,
-        })),
-      });
-    } finally {
-      setExporting(false);
-    }
-  }
-
   return (
-    <div className="space-y-4">
-      <LabCard title="Conclusion" icon={FileText}>
-        <div className="max-w-4xl space-y-3 text-sm leading-relaxed text-slate-600">
-          {COPY.conclusion.body.map((p) => (
-            <p key={p.slice(0, 48)}>{p}</p>
-          ))}
-        </div>
-      </LabCard>
-      <LabCard title="Generate Lab Report" icon={Download}>
-        <ReportDownloadBar
-          buttonId="exp7-download-report"
-          disabled={!canDownload}
-          exporting={exporting}
-          onDownload={() => void handleDownload()}
-          hint={
-            canDownload
-              ? "The PDF includes issue-tag counts, the 20-requirement review table, and the lab conclusion."
-              : "Enter name(s) and registration number(s) to download the PDF."
-          }
-        />
-        <ReportStudentFields
-          form={student}
-          onChange={(key, value) => setStudent((f) => ({ ...f, [key]: value }))}
-          originOptions={[
-            { value: "sample", label: "Lab sample requirements" },
-            { value: "own", label: "Own project" },
-            { value: "github", label: "GitHub project" },
-          ]}
-          footnote="Requirement ambiguity analysis (Exercise 7)."
-        />
-      </LabCard>
-    </div>
+    <ConclusionQuizGate
+      paragraphs={COPY.conclusion.body}
+      questions={CONCLUSION_QUIZ}
+      quizTitle="Experiment 7 — Conclusion quiz"
+      locked={!exerciseDone}
+      lockHint="Complete every question in the Exercise tab, then return here to take the quiz."
+      originOptions={[
+        { value: "sample", label: "Lab sample requirements" },
+        { value: "own", label: "Own project" },
+        { value: "github", label: "GitHub project" },
+      ]}
+      footnote="Requirement ambiguity analysis (Exercise 7)."
+      studentSeed={{ title: "Requirement Ambiguity Analysis", origin: "sample" }}
+      onDownload={async (s, result) => {
+        const { downloadUnifiedLabPdf } = await import("@/lib/reportPdf");
+        await downloadUnifiedLabPdf({
+          experimentNumber: 7,
+          experimentTitle: "Requirement Ambiguity Analysis",
+          names: s.names,
+          regs: s.regs,
+          projectTitle: s.title,
+          origin: s.origin,
+          github: s.github,
+          description: s.description,
+          toolNote: "Structured review of 20 attendance-app requirements.",
+          resultLines: issueCounts.map((row) => `${row.tag}: ${row.count}`),
+          analysisLines: COPY.conclusion.body,
+          conclusion: COPY.conclusion.body.join(" "),
+          quizScore: result.score,
+          quizTotal: result.total,
+        });
+      }}
+    />
   );
 }
 
 // ─── Main shell ───────────────────────────────────────────────────────────────
 export function Exp7Shell() {
   const [section, setSection] = useState<Exp7Section>("aim");
+  const [exerciseDone, setExerciseDone] = useState(false);
 
   function renderBody() {
     if (section === "aim") return <ProseCard section="aim" />;
@@ -1006,8 +1013,8 @@ export function Exp7Shell() {
     }
     if (section === "selfreview") return <SelfReviewPanel />;
     if (section === "table") return <AnalysisTable />;
-    if (section === "exercise") return <ExercisePanel />;
-    return <ConclusionPanel />;
+    if (section === "exercise") return <ExercisePanel onDone={setExerciseDone} />;
+    return <ConclusionPanel exerciseDone={exerciseDone} />;
   }
 
   return (

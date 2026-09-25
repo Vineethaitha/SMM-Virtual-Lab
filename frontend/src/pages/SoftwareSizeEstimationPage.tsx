@@ -50,6 +50,8 @@ import {
   newId,
   saveExp3State,
 } from "@/lib/exp3Store";
+import { LabQuizCards } from "@/components/exercise/LabQuizCards";
+import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
 import { downloadExp3Pdf } from "@/lib/reportPdf";
 
 type Exp3Tab = "aim" | "objective" | "theory" | "procedure" | "simulation" | "exercise" | "conclusion";
@@ -62,6 +64,104 @@ const EXP3_SECTIONS: LabPageSection<Exp3Tab>[] = [
   { id: "simulation", label: "Simulation", icon: Calculator },
   { id: "exercise", label: "Exercise", icon: HelpCircle },
   { id: "conclusion", label: "Conclusion", icon: Award },
+];
+
+const EXP3_CONCLUSION_QUIZ = [
+  {
+    id: "c1",
+    prompt: "UFP is obtained by summing weighted counts of which five component types?",
+    expected: "EI, EO, EQ, ILF, and EIF",
+    explain: "Function Point Analysis counts External Inputs, Outputs, Inquiries, Internal Logical Files, and External Interface Files.",
+    options: ["LOC, SLOC, LLOC, comments, blanks", "EI, EO, EQ, ILF, and EIF", "WMC, DIT, NOC, CBO, RFC", "Pass, Fail, Blocked, Skip, Retest"],
+  },
+  {
+    id: "c2",
+    prompt: "COCOMO Basic effort uses which size unit in the classic organic/semi-detached/embedded equations?",
+    expected: "KLOC (thousands of delivered source lines)",
+    explain: "Basic COCOMO estimates effort from thousands of lines of code and a project-mode coefficient pair.",
+    options: ["Function points only", "Story points", "KLOC (thousands of delivered source lines)", "Cyclomatic complexity"],
+  },
+  {
+    id: "c3",
+    prompt: "VAF adjusts UFP using how many general system characteristics in this lab?",
+    expected: "14 GSC ratings on a 0–5 scale",
+    explain: "The 14 GSCs produce VAF = 0.65 + 0.01 × ΣFi, then AFP = UFP × VAF.",
+    options: ["5 Likert items", "14 GSC ratings on a 0–5 scale", "10 Halstead operators", "6 CK metrics"],
+  },
+  {
+    id: "c4",
+    prompt: "AFP (adjusted function points) is computed as:",
+    expected: "UFP × VAF",
+    explain: "After weighting the five component types, VAF scales the unadjusted total.",
+    options: ["UFP + KLOC", "UFP × VAF", "VAF − 14", "EI × EO only"],
+  },
+  {
+    id: "c5",
+    prompt: "VAF = 0.65 + 0.01 × ΣFi means the adjustment factor ranges about:",
+    expected: "0.65 to 1.35 when each Fi is 0–5",
+    explain: "Fourteen characteristics × 5 = 70, so 0.65 + 0.70 = 1.35 at the top.",
+    options: ["Always 1.00", "0.65 to 1.35 when each Fi is 0–5", "0 to 14 only", "Exactly equal to KLOC"],
+  },
+  {
+    id: "c6",
+    prompt: "An Internal Logical File (ILF) differs from an EIF because an ILF is:",
+    expected: "Maintained within the application boundary",
+    explain: "EIFs are referenced files maintained by another system.",
+    options: [
+      "Always a printed report",
+      "Maintained within the application boundary",
+      "A user inquiry with no data",
+      "A COCOMO mode name",
+    ],
+  },
+  {
+    id: "c7",
+    prompt: "An External Inquiry (EQ) is best described as:",
+    expected: "An input–output pair that retrieves data without significant processing",
+    explain: "EQ is a query; EO produces derived/complex output.",
+    options: [
+      "A batch file maintained by another product",
+      "An input–output pair that retrieves data without significant processing",
+      "Thousands of source lines",
+      "A Likert survey item",
+    ],
+  },
+  {
+    id: "c8",
+    prompt: "Basic COCOMO organic mode is intended for:",
+    expected: "Smaller, familiar teams and relatively unconstrained environments",
+    explain: "Embedded is the opposite: tight constraints and complex interfaces.",
+    options: [
+      "Only safety-critical avionics with rigid interfaces",
+      "Smaller, familiar teams and relatively unconstrained environments",
+      "Survey analysis",
+      "Control-chart Cpk only",
+    ],
+  },
+  {
+    id: "c9",
+    prompt: "COCOMO effort (person-months) and development time are:",
+    expected: "Related but not the same; schedule is a separate equation from effort",
+    explain: "You cannot treat PM and months as interchangeable numbers.",
+    options: [
+      "Always identical numbers",
+      "Related but not the same; schedule is a separate equation from effort",
+      "Both equal to UFP",
+      "Unused in this lab",
+    ],
+  },
+  {
+    id: "c10",
+    prompt: "Using raw LOC alone for size is risky because:",
+    expected: "Language, style, and reuse make line counts hard to compare across projects",
+    explain: "FPA tries to measure delivered functionality more independently of coding style.",
+    options: [
+      "LOC cannot be typed in a report",
+      "Language, style, and reuse make line counts hard to compare across projects",
+      "IEEE bans all size metrics",
+      "KLOC is always more accurate than AFP",
+    ],
+  },
 ];
 
 export function SoftwareSizeEstimationPage() {
@@ -95,6 +195,7 @@ export function SoftwareSizeEstimationPage() {
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
+  const [conclusionQuizDone, setConclusionQuizDone] = useState(false);
   const [topicStats, setTopicStats] = useState<Record<string, { correct: number; total: number; pct: number }>>({});
 
   // Active Project Object
@@ -480,6 +581,10 @@ export function SoftwareSizeEstimationPage() {
                   <LabFormula>Effort = a × (KLOC)^b</LabFormula>
                   <LabFormula>Time = c × (Effort)^d</LabFormula>
                   <LabFormula>Team Size = Effort / Time</LabFormula>
+                  <p className="mt-2 text-xs text-slate-500">
+                    a, b = effort coefficients for the project mode; c, d = schedule coefficients; KLOC = thousands
+                    of delivered source lines; Effort is person-months; Time is calendar months.
+                  </p>
                 </div>
                 <LabThresholds
                   caption="Laboratory coefficients (COCOMO Basic):"
@@ -1046,96 +1151,80 @@ export function SoftwareSizeEstimationPage() {
 
           {/* 6. EXERCISE TAB */}
           {activeTab === "exercise" && (
-            <div className="bg-white border border-slate-200 rounded-xl p-8 shadow-sm space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                    <HelpCircle className="w-6 h-6 text-blue-600" /> Knowledge Check & Self Assessment
-                  </h2>
-                  <p className="text-xs text-slate-500">10 static multiple-choice questions on size estimation</p>
-                </div>
-
-                {quizSubmitted && quizScore !== null && (
-                  <div className="px-4 py-2 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl text-right">
-                    <div className="text-[10px] font-bold uppercase tracking-wider">TOTAL SCORE</div>
-                    <div className="text-xl font-black">{quizScore} / {QUIZ_BANK.length} ({Math.round((quizScore / QUIZ_BANK.length) * 100)}%)</div>
-                  </div>
-                )}
-              </div>
-
-              <form onSubmit={handleQuizSubmit} className="space-y-6">
-                {QUIZ_BANK.map((q, idx) => {
-                  const userAns = quizAnswers[q.id];
-                  const isCorrect = userAns && userAns.trim().toLowerCase() === q.answer.trim().toLowerCase();
-
-                  return (
-                    <div key={q.id} className="p-5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="font-semibold text-sm text-slate-900">
-                          {idx + 1}. {q.question}
-                        </div>
-                        {quizSubmitted && (
-                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded shrink-0 ${isCorrect ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"}`}>
-                            {isCorrect ? "CORRECT" : "INCORRECT"}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="grid md:grid-cols-2 gap-2 text-xs">
-                        {q.options.map((opt, i) => (
-                          <label
-                            key={i}
-                            className={`flex items-center gap-2 p-3 rounded-lg border cursor-pointer transition-colors ${
-                              userAns === opt
-                                ? "bg-blue-50 border-blue-500 text-slate-900 font-medium"
-                                : "bg-white border-slate-200 text-slate-700 hover:bg-slate-100"
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name={q.id}
-                              disabled={quizSubmitted}
-                              checked={userAns === opt}
-                              onChange={() => setQuizAnswers((prev) => ({ ...prev, [q.id]: opt }))}
-                              className="text-blue-600 focus:ring-0"
-                            />
-                            <span>{opt}</span>
-                          </label>
-                        ))}
-                      </div>
-
-                      {quizSubmitted && (
-                        <div className="p-3 bg-white border border-slate-200 rounded-lg text-xs text-slate-600 space-y-1">
-                          <div><strong>Correct Answer:</strong> <span className="text-emerald-700 font-bold">{q.answer}</span></div>
-                          <div><strong>Explanation:</strong> {q.explanation}</div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {!quizSubmitted ? (
-                  <button
-                    type="submit"
-                    className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors text-sm shadow-sm"
-                  >
-                    Submit Quiz Answers
-                  </button>
-                ) : (
-                  <div className="p-4 bg-emerald-50 border border-emerald-300 rounded-xl text-center text-xs text-emerald-800 font-bold">
-                    Quiz submitted! Your answers are locked. You can view your score and explanations above.
-                  </div>
-                )}
-              </form>
+            <div className="space-y-4">
+              <LabCard title="Exercise" icon={HelpCircle}>
+                <p className="text-sm leading-relaxed text-slate-600">
+                  Answer from the size-estimation simulation. Use Try Yourself, Check Answer, and Show Explanation on each card.
+                </p>
+              </LabCard>
+              <LabQuizCards
+                questions={QUIZ_BANK.map((q) => ({
+                  id: q.id,
+                  prompt: q.question,
+                  expected: q.answer,
+                  explain: q.explanation,
+                  options: q.options,
+                }))}
+                onStatusChange={(s) => {
+                  if (s.allChecked) setQuizSubmitted(true);
+                  setQuizScore(s.correct);
+                }}
+              />
             </div>
           )}
 
           {/* 7. CONCLUSION TAB */}
           {activeTab === "conclusion" && (
-            <div className="space-y-6">
+            <ConclusionQuizGate
+              paragraphs={[
+                "Function Point Analysis and COCOMO Basic convert user-visible size into effort and schedule estimates.",
+                "UFP, VAF, AFP, and KLOC must stay consistent with the component and GSC tables before the report is issued.",
+              ]}
+              questions={EXP3_CONCLUSION_QUIZ}
+              quizTitle="Experiment 3 — Conclusion quiz"
+              locked={!activeProject || !quizSubmitted}
+              lockHint={
+                !activeProject
+                  ? "Create a project in Simulation first, then complete every question in the Exercise tab."
+                  : "Complete every question in the Exercise tab, then return here to take the quiz."
+              }
+              originOptions={[
+                { value: "own", label: "Own project" },
+                { value: "sample", label: "Lab sample" },
+                { value: "github", label: "GitHub project" },
+              ]}
+              footnote="Function Point Analysis & COCOMO (Exercise 3)."
+              studentSeed={{ title: "Software Size Estimation", origin: "own" }}
+              onDownload={async (s, result) => {
+                if (!activeProject) return;
+                const metrics = calcMetrics(activeProject, components, gscRatings);
+                const { downloadUnifiedLabPdf } = await import("@/lib/reportPdf");
+                await downloadUnifiedLabPdf({
+                  experimentNumber: 3,
+                  experimentTitle: "Software Size Estimation",
+                  names: s.names,
+                  regs: s.regs,
+                  projectTitle: s.title,
+                  origin: s.origin,
+                  description: s.description,
+                  toolNote: `Project ${activeProject.name} (${activeProject.language}).`,
+                  resultLines: [
+                    `UFP ${metrics.ufp}, VAF ${metrics.vaf}, AFP ${metrics.afp}, KLOC ${metrics.kloc}.`,
+                    `Effort ${metrics.cocomo.effort_pm} PM, schedule ${metrics.cocomo.time_months} months.`,
+                  ],
+                  analysisLines: ["FPA and COCOMO Basic were applied to the student project tables."],
+                  conclusion: "Function Point Analysis and COCOMO Basic convert user-visible size into effort and schedule estimates.",
+                  quizScore: result.score,
+                  quizTotal: result.total,
+                });
+              }}
+            />
+          )}
+          {false && activeTab === "conclusion" && (
+            <div className="space-y-6 hidden">
               <LabCard title="Generate Lab Report" icon={Award}>
                 <ReportDownloadBar
-                  disabled={!activeProject || !quizSubmitted}
+                  disabled={!activeProject || !quizSubmitted || !conclusionQuizDone}
                   exporting={false}
                   onDownload={() => {
                     if (!activeProject) return;
@@ -1167,8 +1256,10 @@ export function SoftwareSizeEstimationPage() {
                     !activeProject
                       ? "Create a project in Simulation first."
                       : !quizSubmitted
-                        ? "Complete the Assessment Quiz in Exercise before downloading the PDF."
-                        : `Project: ${activeProject.name} · ${activeProject.language}`
+                        ? "Check every Exercise question first."
+                        : !conclusionQuizDone
+                          ? "Check every conclusion-quiz question first."
+                          : `Project: ${activeProject.name} · ${activeProject.language}`
                   }
                 />
                 <ReportStudentFields

@@ -312,6 +312,67 @@ export async function downloadReportPdf(
   pdf.footerAndSave(`21csc403t-exercise1-${safeTitle}.pdf`);
 }
 
+export interface UnifiedLabReport {
+  experimentNumber: number;
+  experimentTitle: string;
+  names: string;
+  regs: string;
+  projectTitle?: string;
+  origin?: string;
+  github?: string;
+  description?: string;
+  toolNote?: string;
+  resultLines: string[];
+  analysisLines: string[];
+  conclusion: string;
+  quizScore: number;
+  quizTotal: number;
+  tables?: { title: string; head: string[]; rows: string[][] }[];
+}
+
+export async function downloadUnifiedLabPdf(input: UnifiedLabReport) {
+  const pdf = new LabPdf();
+  const date = new Date().toLocaleDateString();
+  await pdf.header(
+    input.projectTitle || input.experimentTitle,
+    `21CSC403T Virtual Lab - Exercise ${input.experimentNumber} Report  |  Generated ${date}`,
+  );
+
+  studentBlock(pdf, { names: input.names, regs: input.regs, title: input.projectTitle || input.experimentTitle });
+  if (input.origin) pdf.field("Origin", `${input.origin}${input.github ? ` (${input.github})` : ""}`);
+  if (input.description) pdf.field("Description", input.description);
+  pdf.y += 6;
+
+  pdf.heading("2. Tool & Metrics");
+  pdf.body(input.toolNote || "Completed in the 21CSC403T browser virtual lab. Student artefacts are not executed as production software.");
+  pdf.y += 6;
+
+  pdf.heading("3. Results");
+  if (input.resultLines.length === 0) pdf.body("No quantitative results were recorded.");
+  else input.resultLines.forEach((line) => pdf.body(line));
+  pdf.y += 4;
+
+  pdf.heading("4. Analysis & Interpretation");
+  if (input.analysisLines.length === 0) pdf.body("See conclusion.");
+  else input.analysisLines.forEach((line) => pdf.body(line));
+  pdf.y += 4;
+
+  (input.tables ?? []).forEach((table) => {
+    pdf.heading(table.title);
+    pdf.table(table.head, table.rows);
+  });
+
+  pdf.heading("5. Assessment");
+  pdf.field("Quiz score", `${input.quizScore} / ${input.quizTotal}`);
+  pdf.y += 4;
+
+  pdf.heading("6. Inference & Conclusion");
+  pdf.body(input.conclusion);
+
+  const safe = input.experimentTitle.replace(/[^\w-]+/g, "-").toLowerCase();
+  pdf.footerAndSave(`21csc403t-exercise${input.experimentNumber}-${safe}.pdf`);
+}
+
 export interface Exp4PdfInput {
   names: string;
   regs: string;
@@ -780,5 +841,76 @@ export async function downloadExp3Pdf(input: Exp3PdfInput) {
   input.recommendations.forEach((r) => pdf.bullet("•", r));
 
   pdf.footerAndSave("21csc403t-exercise3-size-estimation.pdf");
+}
+
+export async function downloadExp8Pdf(input: {
+  names: string;
+  regs: string;
+  correct: number;
+  total: number;
+  quizScore: number;
+  quizTotal: number;
+  conclusion: string;
+}) {
+  const pdf = new LabPdf();
+  const date = new Date().toLocaleDateString();
+  await pdf.header("Software Maintenance Metrics", `21CSC403T Virtual Lab - Exercise 8 Report  |  Generated ${date}`);
+  studentBlock(pdf, { names: input.names, regs: input.regs, title: "SmartServe maintenance classification" });
+  pdf.heading("2. Simulation results");
+  pdf.body(`Reference-matching labels: ${input.correct} / ${input.total}.`);
+  pdf.body(`Exercise score: ${input.quizScore} / ${input.quizTotal}.`);
+  pdf.heading("3. Conclusion");
+  pdf.body(input.conclusion);
+  pdf.footerAndSave("21csc403t-exercise8-maintenance-metrics.pdf");
+}
+
+export async function downloadExp9Pdf(input: {
+  names: string;
+  regs: string;
+  density: number;
+  lambda: number;
+  r100: number;
+  totalDefects: number;
+  quizScore: number;
+  quizTotal: number;
+  conclusion: string;
+}) {
+  const pdf = new LabPdf();
+  const date = new Date().toLocaleDateString();
+  await pdf.header("Reliability and Defect Density", `21CSC403T Virtual Lab - Exercise 9 Report  |  Generated ${date}`);
+  studentBlock(pdf, { names: input.names, regs: input.regs, title: "Payment Gateway sample" });
+  pdf.heading("2. Computed metrics");
+  pdf.body(`Defects ${input.totalDefects}  |  Density ${fmt(input.density)} /KLOC  |  lambda ${input.lambda.toFixed(3)}  |  R(100) ${fmt(input.r100)}`);
+  pdf.body(`Exercise score: ${input.quizScore} / ${input.quizTotal}.`);
+  pdf.heading("3. Conclusion");
+  pdf.body(input.conclusion);
+  pdf.footerAndSave("21csc403t-exercise9-reliability.pdf");
+}
+
+export async function downloadExp10Pdf(input: {
+  names: string;
+  regs: string;
+  before: { mean: number; stdev: number; cp: number; cpk: number; stable: boolean };
+  after: { mean: number; stdev: number; cp: number; cpk: number; stable: boolean };
+  quizScore: number;
+  quizTotal: number;
+  conclusion: string;
+}) {
+  const pdf = new LabPdf();
+  const date = new Date().toLocaleDateString();
+  await pdf.header("Process Performance (CPI)", `21CSC403T Virtual Lab - Exercise 10 Report  |  Generated ${date}`);
+  studentBlock(pdf, { names: input.names, regs: input.regs, title: "CodeWave testing process" });
+  pdf.heading("2. Baseline (sprints 1-10)");
+  pdf.body(
+    `Mean ${fmt(input.before.mean)}  |  sigma ${fmt(input.before.stdev)}  |  Cp ${fmt(input.before.cp)}  |  Cpk ${fmt(input.before.cpk)}  |  ${input.before.stable ? "stable" : "unstable"}`,
+  );
+  pdf.heading("3. After improvement (sprints 11-15)");
+  pdf.body(
+    `Mean ${fmt(input.after.mean)}  |  sigma ${fmt(input.after.stdev)}  |  Cp ${fmt(input.after.cp)}  |  Cpk ${fmt(input.after.cpk)}  |  ${input.after.stable ? "stable" : "unstable"}`,
+  );
+  pdf.body(`Exercise score: ${input.quizScore} / ${input.quizTotal}.`);
+  pdf.heading("4. Conclusion");
+  pdf.body(input.conclusion);
+  pdf.footerAndSave("21csc403t-exercise10-process-cpi.pdf");
 }
 

@@ -17,12 +17,15 @@ import {
   ResponsiveContainer, Cell,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { LabQuizCards } from "@/components/exercise/LabQuizCards";
+import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
 import { LabCard as Exp5Card, LabInfoBox as Exp5InfoBox } from "@/components/lab/LabCard";
 import {
   ReportDownloadBar,
   ReportStudentFields,
   type ReportStudentForm,
 } from "@/components/lab/ReportForm";
+import { LabHeroHeader } from "@/components/layout/LabHeroHeader";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
 import {
   EXP5_CLASSES, EXP5_RELATIONSHIPS, EXP5_COHESION,
@@ -617,9 +620,22 @@ function Exp5ProcedureTab() {
 }
 
 // ─── Exercise Tab ─────────────────────────────────────────────────
-function Exp5ExerciseTab({ selectedId, onSelect }: {
+function exp5ToQuizCards(
+  items: { id: number; question: string; options: string[]; correct: number; feedback: string }[],
+) {
+  return items.map((q) => ({
+    id: String(q.id),
+    prompt: q.question,
+    expected: q.options[q.correct] ?? "",
+    explain: q.feedback,
+    options: q.options,
+  }));
+}
+
+function Exp5ExerciseTab({ selectedId, onSelect, onExerciseStatus }: {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  onExerciseStatus: (allChecked: boolean) => void;
 }) {
   const [activeTask, setActiveTask] = useState(0);
   const tasks = ["Class Size Analysis", "Cohesion Analysis", "Coupling and Decoupling", "Response Set Estimation"];
@@ -777,6 +793,17 @@ function Exp5ExerciseTab({ selectedId, onSelect }: {
             )}
           </div>
         )}
+      </Exp5Card>
+      <Exp5Card title="Exercise questions">
+        <p className="mb-3 text-sm leading-relaxed text-slate-600">
+          Use Try Yourself, Check Answer, and Show Explanation on each card.
+        </p>
+        <LabQuizCards
+          questions={exp5ToQuizCards(EXP5_QUIZ)}
+          onStatusChange={(s) => {
+            if (s.allChecked) onExerciseStatus(true);
+          }}
+        />
       </Exp5Card>
     </div>
   );
@@ -1688,9 +1715,11 @@ function Exp5QuizTab({
 function Exp5ConclusionTab({
   quizAnswers,
   quizFinished,
+  exerciseDone,
 }: {
   quizAnswers: (number | null)[];
   quizFinished: boolean;
+  exerciseDone: boolean;
 }) {
   const metrics = EXP5_METRICS;
   const largestClass = metrics.reduce((a, b) => (b.totalMembers > a.totalMembers ? b : a));
@@ -1710,7 +1739,8 @@ function Exp5ConclusionTab({
   const conclusion =
     "Object-oriented design metrics provide a structured approach to evaluating software quality at the class level. By analyzing size, cohesion, coupling, and response sets, developers can identify classes that may benefit from refactoring and apply appropriate design improvements such as interfaces, service abstractions, dependency injection, and separation of responsibilities.";
 
-  const canDownload = quizFinished;
+  const canDownload =
+    exerciseDone && quizFinished && Boolean(student.names.trim() && student.regs.trim());
 
   async function handleDownload() {
     if (!canDownload) return;
@@ -1767,9 +1797,13 @@ function Exp5ConclusionTab({
           exporting={exporting}
           onDownload={() => void handleDownload()}
           hint={
-            !quizFinished
-              ? "Complete the Assessment Quiz above before downloading the PDF."
-              : "The PDF includes class size, cohesion, coupling, response-set tables, and decoupling recommendations from the current model."
+            !exerciseDone
+              ? "Check every Exercise question first."
+              : !quizFinished
+                ? "Check every conclusion-quiz question first."
+                : !student.names.trim() || !student.regs.trim()
+                  ? "Enter name(s) and registration number(s)."
+                  : "The PDF includes class size, cohesion, coupling, response-set tables, and decoupling recommendations from the current model."
           }
         />
         <ReportStudentFields
@@ -1796,7 +1830,6 @@ const EXP5_TAB_ICONS: Record<Exp5Tab, React.ComponentType<{ className?: string }
   exercise: ListChecks,
   simulation: Play,
   results: BarChart3,
-  analysis: FlaskConical,
   comparison: GitCompare,
   conclusion: FileText,
 };
@@ -1815,6 +1848,7 @@ export function ObjectOrientedMetricsPage() {
   const [customRels, setCustomRels] = useState<Exp5Relationship[]>([]);
   const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>(Array(10).fill(null));
   const [quizFinished, setQuizFinished] = useState(false);
+  const [exerciseDone, setExerciseDone] = useState(false);
 
   const handleSelectClass = useCallback((id: string | null) => {
     setSelectedClassId(id);
@@ -1827,6 +1861,7 @@ export function ObjectOrientedMetricsPage() {
     setCustomRels([]);
     setQuizAnswers(Array(10).fill(null));
     setQuizFinished(false);
+    setExerciseDone(false);
     setActiveTab("aim");
   }
 
@@ -1836,7 +1871,7 @@ export function ObjectOrientedMetricsPage() {
       case "objective":  return <Exp5ObjectiveTab />;
       case "theory":     return <Exp5TheoryTab />;
       case "procedure":  return <Exp5ProcedureTab />;
-      case "exercise":   return <Exp5ExerciseTab selectedId={selectedClassId} onSelect={handleSelectClass} />;
+      case "exercise":   return <Exp5ExerciseTab selectedId={selectedClassId} onSelect={handleSelectClass} onExerciseStatus={setExerciseDone} />;
       case "simulation": return (
         <Exp5SimulationTab
           selectedId={selectedClassId}
@@ -1849,24 +1884,51 @@ export function ObjectOrientedMetricsPage() {
           onSetCustomRels={setCustomRels}
         />
       );
-      case "results":    return <Exp5ResultsTab />;
-      case "analysis":   return <Exp5AnalysisTab />;
+      case "results":    return (
+        <div className="space-y-4">
+          <Exp5ResultsTab />
+          <Exp5AnalysisTab />
+        </div>
+      );
       case "comparison": return <Exp5ComparisonTab />;
       case "conclusion":
         return (
-          <div className="space-y-6">
-            <Exp5QuizTab
-              quizAnswers={quizAnswers}
-              quizFinished={quizFinished}
-              onQuizAnswersChange={setQuizAnswers}
-              onQuizFinish={() => setQuizFinished(true)}
-              onQuizReset={() => {
-                setQuizAnswers(Array(10).fill(null));
-                setQuizFinished(false);
-              }}
-            />
-            <Exp5ConclusionTab quizAnswers={quizAnswers} quizFinished={quizFinished} />
-          </div>
+          <ConclusionQuizGate
+            paragraphs={[
+              "Object-oriented design metrics evaluate size, cohesion, coupling, and response-set load at the class level.",
+              "High coupling or mixed responsibilities are candidates for interfaces, injection, and separation of concerns.",
+            ]}
+            questions={exp5ToQuizCards(EXP5_QUIZ)}
+            quizTitle="Experiment 5 — Conclusion quiz"
+            locked={!exerciseDone}
+            lockHint="Complete every question in the Exercise tab, then return here to take the quiz."
+            originOptions={[{ value: "sample", label: "Lab class model" }]}
+            footnote="Object-Oriented Design Metrics (Exercise 5)."
+            studentSeed={{ title: "Object-Oriented Design Metrics", origin: "sample" }}
+            onDownload={async (s, result) => {
+              const { downloadUnifiedLabPdf } = await import("@/lib/reportPdf");
+              await downloadUnifiedLabPdf({
+                experimentNumber: 5,
+                experimentTitle: "Object-Oriented Design Metrics",
+                names: s.names,
+                regs: s.regs,
+                projectTitle: s.title,
+                origin: s.origin,
+                description: s.description,
+                toolNote: "Educational class model (size, cohesion, coupling, estimated response set).",
+                resultLines: EXP5_METRICS.slice(0, 8).map(
+                  (m) => `${m.name}: size ${m.sizeCategory}, cohesion ${m.cohesionLevel}, coupling ${m.couplingCategory}, ERS ${m.estimatedResponseSet}`,
+                ),
+                analysisLines: [
+                  "Class size, cohesion, coupling, and response-set estimates identify refactoring candidates.",
+                ],
+                conclusion:
+                  "OO metrics provide a structured way to judge structural quality and to choose decoupling strategies.",
+                quizScore: result.score,
+                quizTotal: result.total,
+              });
+            }}
+          />
         );
       default: return null;
     }
@@ -1876,28 +1938,12 @@ export function ObjectOrientedMetricsPage() {
     <div className="flex min-h-screen flex-col bg-slate-100 lg:flex-row">
       <ExperimentSidebar />
       <div className="min-w-0 flex-1">
-        {/* Blue gradient header */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-blue-800 via-blue-600 to-indigo-500 text-white">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
-          <div className="pointer-events-none absolute -left-8 bottom-0 h-32 w-32 rounded-full bg-white/5 blur-xl" />
-          <div className="relative px-4 py-5 sm:px-6 sm:py-6 lg:px-10">
-            <div className="mb-2 flex items-center gap-2 text-xs text-white/70">
-              <span>Experiments</span>
-              <span>/</span>
-              <span className="font-medium text-white">Object-Oriented Design Metrics</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/15 px-2.5 py-0.5 text-[11px] font-medium">
-                <Boxes className="h-3 w-3" />
-                Experiment 5
-              </span>
-              <h1 className="text-xl font-bold sm:text-2xl">Object-Oriented Design Metrics</h1>
-            </div>
-            <p className="mt-1.5 max-w-3xl text-sm text-white/85">
-              Analyze class size, cohesion, coupling, and response sets to evaluate object-oriented design quality.
-            </p>
-          </div>
-        </div>
+        <LabHeroHeader
+          experimentNumber={5}
+          title="Object-Oriented Design Metrics"
+          subtitle="Analyze class size, cohesion, coupling, and response sets to evaluate object-oriented design quality."
+          badgeIcon={Boxes}
+        />
 
         {/* Tab navigation */}
         <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 shadow-sm backdrop-blur">

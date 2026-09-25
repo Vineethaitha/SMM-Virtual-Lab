@@ -78,7 +78,7 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Classify corrective, adaptive, perfective, and preventive maintenance work and relate it to maintainability metrics.",
     icon: "Wrench",
-    implemented: false,
+    implemented: true,
   },
   {
     id: 9,
@@ -87,7 +87,7 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Compute defect density, failure rates, and reliability indicators, then discuss what they imply for release quality.",
     icon: "Shield",
-    implemented: false,
+    implemented: true,
   },
   {
     id: 10,
@@ -96,7 +96,7 @@ export const EXPERIMENTS: Experiment[] = [
     description:
       "Assess whether a testing process is statistically stable and capable, then propose an improvement plan.",
     icon: "Gauge",
-    implemented: false,
+    implemented: true,
   },
 ];
 

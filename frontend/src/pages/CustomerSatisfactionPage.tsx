@@ -11,12 +11,15 @@ import {
   PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { cn } from "@/lib/utils";
+import { LabQuizCards } from "@/components/exercise/LabQuizCards";
+import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
 import { LabCard as Exp4Card, LabInfoBox as Exp4InfoBox } from "@/components/lab/LabCard";
 import {
   ReportDownloadBar,
   ReportStudentFields,
   type ReportStudentForm,
 } from "@/components/lab/ReportForm";
+import { LabHeroHeader } from "@/components/layout/LabHeroHeader";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
 import {
   EXP4_TABS, EXP4_APPS, EXP4_FACTORS, EXP4_FACTOR_LABELS,
@@ -34,6 +37,18 @@ const EXP4_PIE_COLORS = ["#ef4444", "#f59e0b", "#10b981"];
 // ─── Helpers ──────────────────────────────────────────────────
 function exp4_round2(n: number) {
   return Math.round(n * 100) / 100;
+}
+
+function exp4ToQuizCards(
+  items: { id: number; question: string; options: string[]; correct: number; feedback: string }[],
+) {
+  return items.map((q) => ({
+    id: String(q.id),
+    prompt: q.question,
+    expected: q.options[q.correct] ?? "",
+    explain: q.feedback,
+    options: q.options,
+  }));
 }
 
 
@@ -167,8 +182,9 @@ function Exp4TheoryTab() {
           </p>
         </div>
         <p className="mt-3 text-sm text-slate-600">
-          This formula can be applied to all ratings combined, or separately for each factor to produce
-          factor-level averages.
+          Sum of Ratings is the total of the 1–5 Likert values collected. Number of Ratings is how many
+          responses (or how many answers for one factor). Apply the same formula to all ratings, or
+          separately per factor (ease of use, performance, reliability, features).
         </p>
       </Exp4Card>
 
@@ -253,9 +269,10 @@ interface Exp4ExerciseTabProps {
   submittedApps: Set<string>;
   onAddResponse: (r: Exp4Response) => void;
   onMarkAppSubmitted: (app: string) => void;
+  onExerciseStatus: (allChecked: boolean) => void;
 }
 
-function Exp4ExerciseTab({ responses, selectedApp, submittedApps, onAddResponse, onMarkAppSubmitted }: Exp4ExerciseTabProps) {
+function Exp4ExerciseTab({ responses, selectedApp, submittedApps, onAddResponse, onMarkAppSubmitted, onExerciseStatus }: Exp4ExerciseTabProps) {
   const [app, setApp] = useState(selectedApp);
   const [q1, setQ1] = useState<number>(0);
   const [q2, setQ2] = useState<number>(0);
@@ -412,6 +429,17 @@ function Exp4ExerciseTab({ responses, selectedApp, submittedApps, onAddResponse,
             </div>
           </form>
         )}
+      </Exp4Card>
+      <Exp4Card title="Exercise questions">
+        <p className="mb-3 text-sm leading-relaxed text-slate-600">
+          Use Try Yourself, Check Answer, and Show Explanation on each card.
+        </p>
+        <LabQuizCards
+          questions={exp4ToQuizCards(EXP4_QUIZ)}
+          onStatusChange={(s) => {
+            if (s.allChecked) onExerciseStatus(true);
+          }}
+        />
       </Exp4Card>
     </div>
   );
@@ -1375,12 +1403,13 @@ function Exp4QuizTab({ quizAnswers, quizFinished, onQuizAnswersChange, onQuizFin
 
 // ─── Conclusion Tab (with Report) ─────────────────────────────
 function Exp4ConclusionTab({
-  responses, selectedApp, quizAnswers, quizFinished,
+  responses, selectedApp, quizAnswers, quizFinished, exerciseDone,
 }: {
   responses: Exp4Response[];
   selectedApp: string;
   quizAnswers: (number | null)[];
   quizFinished: boolean;
+  exerciseDone: boolean;
 }) {
   const [student, setStudent] = useState<ReportStudentForm>({
     names: "",
@@ -1407,7 +1436,11 @@ function Exp4ConclusionTab({
     ? `Based on ${responses.length} survey responses for ${selectedApp}, the overall satisfaction score of ${overallAvg.toFixed(2)} out of 5.00 indicates ${exp4_interpretScore(overallAvg).toLowerCase()}. ${highest ? `The strongest aspect is ${EXP4_FACTOR_LABELS[highest.factor]} with an average of ${exp4_round2(highest.avg).toFixed(2)}.` : ""} ${lowest ? `The primary area requiring improvement is ${EXP4_FACTOR_LABELS[lowest.factor]}, which received an average of ${exp4_round2(lowest.avg).toFixed(2)}.` : ""} ${themes.length > 0 ? `Open-ended feedback highlighted themes including ${themes.slice(0, 3).map((t) => t.theme).join(", ")}.` : "No recurring qualitative themes were identified from the open-ended responses."}`
     : "";
 
-  const canDownload = responses.length > 0 && quizFinished;
+  const canDownload =
+    responses.length > 0 &&
+    exerciseDone &&
+    quizFinished &&
+    Boolean(student.names.trim() && student.regs.trim());
 
   async function handleDownload() {
     if (!canDownload) return;
@@ -1444,10 +1477,14 @@ function Exp4ConclusionTab({
   }
 
   const downloadHint = !responses.length
-    ? "Submit or load survey responses in Exercise or Simulation first, then complete the assessment quiz."
-    : !quizFinished
-      ? "Complete the Assessment Quiz above before downloading the PDF."
-      : `Application: ${selectedApp} · ${responses.length} responses · overall ${overallAvg.toFixed(2)} / 5.00`;
+    ? "Submit or load survey responses in Exercise or Simulation first."
+    : !exerciseDone
+      ? "Check every Exercise question first."
+      : !quizFinished
+        ? "Check every conclusion-quiz question first."
+        : !student.names.trim() || !student.regs.trim()
+          ? "Enter name(s) and registration number(s)."
+          : `Application: ${selectedApp} · ${responses.length} responses · overall ${overallAvg.toFixed(2)} / 5.00`;
 
   return (
     <div className="space-y-4">
@@ -1520,7 +1557,6 @@ const EXP4_TAB_ICONS: Record<Exp4Tab, React.ComponentType<{ className?: string }
   exercise: ListChecks,
   simulation: Play,
   results: BarChart3,
-  analysis: FlaskConical,
   comparison: GitCompare,
   conclusion: FileText,
 };
@@ -1541,6 +1577,7 @@ export function CustomerSatisfactionPage() {
   // Quiz state — lifted to share with ConclusionTab
   const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>(Array(10).fill(null));
   const [quizFinished, setQuizFinished] = useState(false);
+  const [exerciseDone, setExerciseDone] = useState(false);
 
   const handleAddResponse = useCallback((r: Exp4Response) => {
     setResponses(prev => [...prev, r]);
@@ -1567,6 +1604,7 @@ export function CustomerSatisfactionPage() {
     setSimSampleCount(20);
     setQuizAnswers(Array(10).fill(null));
     setQuizFinished(false);
+    setExerciseDone(false);
     setActiveTab("aim");
   }
 
@@ -1583,6 +1621,7 @@ export function CustomerSatisfactionPage() {
           submittedApps={submittedApps}
           onAddResponse={handleAddResponse}
           onMarkAppSubmitted={handleMarkAppSubmitted}
+          onExerciseStatus={setExerciseDone}
         />
       );
       case "simulation": return (
@@ -1600,25 +1639,56 @@ export function CustomerSatisfactionPage() {
           onNavigate={setActiveTab}
         />
       );
-      case "results": return <Exp4ResultsTab responses={responses} selectedApp={selectedApp} />;
-      case "analysis": return <Exp4AnalysisTab responses={responses} selectedApp={selectedApp} />;
+      case "results": return (
+        <div className="space-y-4">
+          <Exp4ResultsTab responses={responses} selectedApp={selectedApp} />
+          <Exp4AnalysisTab responses={responses} selectedApp={selectedApp} />
+        </div>
+      );
       case "comparison": return <Exp4ComparisonTab responses={responses} selectedApp={selectedApp} />;
       case "conclusion": return (
-        <div className="space-y-4">
-          <Exp4QuizTab
-            quizAnswers={quizAnswers}
-            quizFinished={quizFinished}
-            onQuizAnswersChange={setQuizAnswers}
-            onQuizFinish={() => setQuizFinished(true)}
-            onQuizReset={() => { setQuizAnswers(Array(10).fill(null)); setQuizFinished(false); }}
-          />
-          <Exp4ConclusionTab
-            responses={responses}
-            selectedApp={selectedApp}
-            quizAnswers={quizAnswers}
-            quizFinished={quizFinished}
-          />
-        </div>
+        <ConclusionQuizGate
+          paragraphs={[
+            "Customer satisfaction surveys convert Likert ratings into factor averages and highlight the weakest aspect for improvement.",
+            "Open-ended comments add qualitative themes that scores alone cannot explain.",
+          ]}
+          questions={exp4ToQuizCards(EXP4_QUIZ)}
+          quizTitle="Experiment 4 — Conclusion quiz"
+          locked={!exerciseDone || responses.length === 0}
+          lockHint={
+            responses.length === 0
+              ? "Load or submit survey responses in Simulation, then complete every question in the Exercise tab."
+              : "Complete every question in the Exercise tab, then return here to take the quiz."
+          }
+          originOptions={[
+            { value: "survey", label: "Classroom / own survey" },
+            { value: "sample", label: "Lab sample dataset" },
+          ]}
+          footnote={`Application: ${selectedApp}. Exercise 4.`}
+          studentSeed={{ title: "Customer Satisfaction Metrics", origin: "survey" }}
+          onDownload={async (s, result) => {
+            const { downloadUnifiedLabPdf } = await import("@/lib/reportPdf");
+            const overallAvg = exp4_round2(exp4_overallAverage(responses));
+            await downloadUnifiedLabPdf({
+              experimentNumber: 4,
+              experimentTitle: "Customer Satisfaction Metrics",
+              names: s.names,
+              regs: s.regs,
+              projectTitle: s.title,
+              origin: s.origin,
+              description: s.description,
+              toolNote: `${selectedApp}, ${responses.length} responses.`,
+              resultLines: [`Overall average ${overallAvg.toFixed(2)} / 5.00 (${exp4_interpretScore(overallAvg)}).`],
+              analysisLines: [
+                "Likert factor averages identify strengths and the lowest-rated improvement area.",
+              ],
+              conclusion:
+                "Survey metrics and qualitative themes together identify software strengths and improvement areas.",
+              quizScore: result.score,
+              quizTotal: result.total,
+            });
+          }}
+        />
       );
       default: return null;
     }
@@ -1628,28 +1698,12 @@ export function CustomerSatisfactionPage() {
     <div className="flex min-h-screen flex-col bg-slate-100 lg:flex-row">
       <ExperimentSidebar />
       <div className="min-w-0 flex-1">
-        {/* Header */}
-        <div className="relative overflow-hidden bg-gradient-to-br from-blue-800 via-blue-600 to-blue-500 text-white">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
-          <div className="pointer-events-none absolute -left-8 bottom-0 h-32 w-32 rounded-full bg-white/5 blur-xl" />
-          <div className="relative px-4 py-5 sm:px-6 sm:py-6 lg:px-10">
-            <div className="mb-2 flex items-center gap-2 text-xs text-white/70">
-              <span>Experiments</span>
-              <span>/</span>
-              <span className="font-medium text-white">Customer Satisfaction Metrics</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/30 bg-white/15 px-2.5 py-0.5 text-[11px] font-medium">
-                <Smile className="h-3 w-3" />
-                Experiment 4
-              </span>
-              <h1 className="text-xl font-bold sm:text-2xl">Customer Satisfaction Metrics</h1>
-            </div>
-            <p className="mt-1.5 max-w-3xl text-sm text-white/85">
-              Measure customer satisfaction through surveys, analyze user feedback, and identify strengths and improvement areas.
-            </p>
-          </div>
-        </div>
+        <LabHeroHeader
+          experimentNumber={4}
+          title="Customer Satisfaction Metrics"
+          subtitle="Measure customer satisfaction through surveys, analyze user feedback, and identify strengths and improvement areas."
+          badgeIcon={Smile}
+        />
 
         {/* Tab Navigation */}
         <nav className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 shadow-sm backdrop-blur">

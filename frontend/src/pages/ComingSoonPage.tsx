@@ -25,7 +25,7 @@ export function ComingSoonPage() {
               <Construction className="h-12 w-12 text-amber-500" />
               <p className="text-sm text-slate-600">
                 {exp?.description ?? "This experiment is not available yet."} This lab will be added in a
-                later version. Experiments 1 through 7 are available now.
+                later version. Experiments 1 through 10 are available now.
               </p>
               <div className="flex gap-2">
                 <Link to="/">
