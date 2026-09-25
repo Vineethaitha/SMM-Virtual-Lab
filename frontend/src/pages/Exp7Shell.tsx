@@ -18,7 +18,6 @@ import {
   ChevronRight,
   ClipboardList,
   ClipboardPen,
-  Download,
   Eye,
   FileSearch,
   FileText,
@@ -47,7 +46,6 @@ const OPTION_IDLE =
 const OPTION_SELECTED = "border-blue-500 bg-blue-50 text-blue-800";
 const OPTION_CORRECT = "border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold";
 const OPTION_INCORRECT = "border-red-400 bg-red-50 text-red-700";
-const OPTION_MUTED = "border-slate-100 bg-slate-50 text-slate-400";
 const FIELD_CLASS =
   "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60";
 

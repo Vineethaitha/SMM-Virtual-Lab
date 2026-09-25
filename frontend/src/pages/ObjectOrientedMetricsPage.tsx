@@ -9,7 +9,7 @@ import { useParams } from "react-router-dom";
 import {
   Target, Lightbulb, BookOpen, ClipboardList, ListChecks,
   Play, BarChart3, FlaskConical, GitCompare, FileText,
-  Boxes, ArrowRight, Check, X, Minus, RotateCcw, Download,
+  Boxes, ArrowRight, Check, X, RotateCcw,
   TrendingUp, TrendingDown, Info, Plus, Trash2, Edit2, GitBranch,
 } from "lucide-react";
 import {
@@ -20,11 +20,6 @@ import { cn } from "@/lib/utils";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
 import { LabCard as Exp5Card, LabInfoBox as Exp5InfoBox } from "@/components/lab/LabCard";
-import {
-  ReportDownloadBar,
-  ReportStudentFields,
-  type ReportStudentForm,
-} from "@/components/lab/ReportForm";
 import { LabHeroHeader } from "@/components/layout/LabHeroHeader";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
 import {
@@ -1548,280 +1543,6 @@ function Exp5ComparisonTab() {
   );
 }
 
-// ─── Quiz Tab ─────────────────────────────────────────────────────
-interface Exp5QuizTabProps {
-  quizAnswers: (number | null)[];
-  quizFinished: boolean;
-  onQuizAnswersChange: (a: (number | null)[]) => void;
-  onQuizFinish: () => void;
-  onQuizReset: () => void;
-}
-
-function Exp5QuizTab({
-  quizAnswers,
-  quizFinished,
-  onQuizAnswersChange,
-  onQuizFinish,
-  onQuizReset,
-}: Exp5QuizTabProps) {
-  const [current, setCurrent] = useState(0);
-  const [selected, setSelected] = useState<number | null>(quizAnswers[0] ?? null);
-  const [answered, setAnswered] = useState(quizAnswers[0] !== null);
-  const [reviewing, setReviewing] = useState(false);
-  const answers = quizAnswers;
-  const finished = quizFinished;
-
-  const q = EXP5_QUIZ[current]!;
-  const score = answers.filter((a, i) => a === EXP5_QUIZ[i]!.correct).length;
-
-  function handleSelect(idx: number) {
-    if (answered) return;
-    setSelected(idx);
-    setAnswered(true);
-    const upd = [...answers];
-    upd[current] = idx;
-    onQuizAnswersChange(upd);
-  }
-
-  function handleNext() {
-    if (current < EXP5_QUIZ.length - 1) {
-      const next = current + 1;
-      setCurrent(next);
-      setSelected(answers[next] ?? null);
-      setAnswered(answers[next] !== null);
-    } else {
-      onQuizFinish();
-    }
-  }
-
-  function handleRetry() {
-    setCurrent(0);
-    setSelected(null);
-    setAnswered(false);
-    setReviewing(false);
-    onQuizReset();
-  }
-
-  if (finished && !reviewing) {
-    const pct = Math.round((score / 10) * 100);
-    const pass = score >= 6;
-    return (
-      <Exp5Card title="Object-Oriented Design Metrics — Assessment Quiz" icon={ListChecks}>
-        <div className="flex flex-col items-center gap-5 py-8 text-center">
-          <div className={cn("flex h-24 w-24 items-center justify-center rounded-full text-3xl font-bold text-white", pass ? "bg-emerald-500" : "bg-rose-500")}>
-            {score}/10
-          </div>
-          <div>
-            <p className="text-2xl font-bold">{pct}%</p>
-            <p className={cn("text-lg font-semibold mt-1", pass ? "text-emerald-600" : "text-rose-600")}>{pass ? "✓ Pass" : "✗ Fail"}</p>
-            <p className="text-sm text-slate-500 mt-2">Passing score: 6/10 (60%)</p>
-          </div>
-          <div className="flex gap-3">
-            <button type="button" onClick={handleRetry} className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-              <RotateCcw className="h-4 w-4" /> Retry Quiz
-            </button>
-            <button type="button" onClick={() => setReviewing(true)} className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
-              Review Answers <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </Exp5Card>
-    );
-  }
-
-  if (reviewing) {
-    return (
-      <Exp5Card title="Answer Review" icon={ListChecks}>
-        <div className="mb-4 flex items-center justify-between">
-          <p className="text-sm text-slate-600">Final Score: <strong>{score}/10</strong></p>
-          <button type="button" onClick={handleRetry} className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors">
-            <RotateCcw className="h-3.5 w-3.5" /> Retry Quiz
-          </button>
-        </div>
-        <div className="space-y-4">
-          {EXP5_QUIZ.map((qItem, qi) => {
-            const userAns = answers[qi];
-            const correct = userAns === qItem.correct;
-            return (
-              <div key={qItem.id} className={cn("rounded-lg border p-4", correct ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50")}>
-                <p className="text-sm font-semibold text-slate-800 mb-2">Q{qItem.id}. {qItem.question}</p>
-                <div className="space-y-1">
-                  {qItem.options.map((opt, oi) => (
-                    <div key={oi} className={cn("flex items-center gap-2 rounded px-3 py-1.5 text-sm",
-                      oi === qItem.correct ? "bg-emerald-100 text-emerald-800 font-medium"
-                        : oi === userAns && !correct ? "bg-red-100 text-red-700"
-                        : "text-slate-500")}>
-                      {oi === qItem.correct ? <Check className="h-3.5 w-3.5 text-emerald-600" />
-                        : oi === userAns ? <X className="h-3.5 w-3.5 text-red-500" />
-                        : <Minus className="h-3.5 w-3.5 text-slate-300" />}
-                      {opt}
-                    </div>
-                  ))}
-                </div>
-                <p className="mt-2 text-xs text-slate-600 italic">{qItem.feedback}</p>
-              </div>
-            );
-          })}
-        </div>
-      </Exp5Card>
-    );
-  }
-
-  return (
-    <Exp5Card title="Object-Oriented Design Metrics — Assessment Quiz" icon={ListChecks}>
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm font-medium text-slate-500">Question {current + 1} of 10</span>
-        <span className="text-sm font-medium text-blue-600">Score: {score}</span>
-      </div>
-      <div className="mb-2 h-2 w-full rounded-full bg-slate-200">
-        <div className="h-2 rounded-full bg-blue-600 transition-all" style={{ width: `${((current + (answered ? 1 : 0)) / 10) * 100}%` }} />
-      </div>
-      <p className="mt-5 mb-4 text-base font-semibold text-slate-800">{q.question}</p>
-      <div className="space-y-2">
-        {q.options.map((opt, i) => {
-          let variant = "border-slate-200 bg-white text-slate-700 hover:border-blue-400 hover:bg-blue-50";
-          if (answered) {
-            if (i === q.correct) variant = "border-emerald-500 bg-emerald-50 text-emerald-800 font-semibold";
-            else if (i === selected) variant = "border-red-400 bg-red-50 text-red-700";
-            else variant = "border-slate-100 bg-slate-50 text-slate-400";
-          } else if (selected === i) variant = "border-blue-500 bg-blue-50 text-blue-800";
-          return (
-            <button key={i} id={`exp5-quiz-q${current + 1}-opt-${i}`} type="button" onClick={() => handleSelect(i)} disabled={answered}
-              className={cn("w-full rounded-lg border px-4 py-3 text-left text-sm transition-all", variant)}>
-              <span className="mr-2 font-bold">{String.fromCharCode(65 + i)}.</span>{opt}
-            </button>
-          );
-        })}
-      </div>
-      {answered && (
-        <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
-          <span className="font-semibold mr-2">{selected === q.correct ? "✓ Correct!" : "✗ Incorrect."}</span>
-          {q.feedback}
-        </div>
-      )}
-      {answered && (
-        <div className="mt-4 flex justify-end">
-          <button type="button" onClick={handleNext}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors">
-            {current < 9 ? "Next Question" : "See Results"}<ArrowRight className="h-4 w-4" />
-          </button>
-        </div>
-      )}
-    </Exp5Card>
-  );
-}
-
-// ─── Conclusion + Report Tab ──────────────────────────────────────
-function Exp5ConclusionTab({
-  quizAnswers,
-  quizFinished,
-  exerciseDone,
-}: {
-  quizAnswers: (number | null)[];
-  quizFinished: boolean;
-  exerciseDone: boolean;
-}) {
-  const metrics = EXP5_METRICS;
-  const largestClass = metrics.reduce((a, b) => (b.totalMembers > a.totalMembers ? b : a));
-  const highestCoupling = metrics.reduce((a, b) => (b.outgoing > a.outgoing ? b : a));
-  const highestERS = metrics.reduce((a, b) => (b.estimatedResponseSet > a.estimatedResponseSet ? b : a));
-  const medLowCohesion = metrics.filter((m) => m.cohesionLevel !== "High");
-  const [student, setStudent] = useState<ReportStudentForm>({
-    names: "",
-    regs: "",
-    title: "Object-Oriented Design Metrics",
-    origin: "sample",
-    github: "",
-    description: "Class model analysed in 21CSC403T Virtual Lab Exercise 5.",
-  });
-  const [exporting, setExporting] = useState(false);
-
-  const conclusion =
-    "Object-oriented design metrics provide a structured approach to evaluating software quality at the class level. By analyzing size, cohesion, coupling, and response sets, developers can identify classes that may benefit from refactoring and apply appropriate design improvements such as interfaces, service abstractions, dependency injection, and separation of responsibilities.";
-
-  const canDownload =
-    exerciseDone && quizFinished && Boolean(student.names.trim() && student.regs.trim());
-
-  async function handleDownload() {
-    if (!canDownload) return;
-    setExporting(true);
-    try {
-      const { downloadExp5Pdf } = await import("@/lib/reportPdf");
-      await downloadExp5Pdf({
-        names: student.names,
-        regs: student.regs,
-        title: student.title,
-        origin: student.origin,
-        github: student.github,
-        description: student.description,
-        metrics,
-        strategies: EXP5_STRATEGIES,
-        largestClass,
-        highestCoupling,
-        highestERS,
-        medLowCohesion,
-        conclusion,
-        quiz: {
-          score: quizAnswers.filter((a, i) => a === EXP5_QUIZ[i]!.correct).length,
-          answers: quizAnswers,
-          questions: EXP5_QUIZ,
-        },
-      });
-    } finally {
-      setExporting(false);
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <Exp5Card title="Conclusion" icon={FileText}>
-        <div className="space-y-3 text-sm leading-relaxed text-slate-600">
-          <p>
-            Object-oriented design metrics help evaluate the structural quality of a software system.
-            Class size provides an indication of the amount of functionality contained within classes,
-            while cohesion describes how closely related their responsibilities are.
-          </p>
-          <p>
-            Coupling and response-set analysis help identify classes that participate heavily in
-            interactions with other classes. Such classes can become candidates for design improvement
-            through interfaces, service abstractions, dependency injection, and separation of
-            responsibilities.
-          </p>
-        </div>
-      </Exp5Card>
-
-      <Exp5Card title="Generate Lab Report" icon={Download}>
-        <ReportDownloadBar
-          buttonId="exp5-download-report"
-          disabled={!canDownload}
-          exporting={exporting}
-          onDownload={() => void handleDownload()}
-          hint={
-            !exerciseDone
-              ? "Check every Exercise question first."
-              : !quizFinished
-                ? "Check every conclusion-quiz question first."
-                : !student.names.trim() || !student.regs.trim()
-                  ? "Enter name(s) and registration number(s)."
-                  : "The PDF includes class size, cohesion, coupling, response-set tables, and decoupling recommendations from the current model."
-          }
-        />
-        <ReportStudentFields
-          form={student}
-          onChange={(key, value) => setStudent((f) => ({ ...f, [key]: value }))}
-          originOptions={[
-            { value: "sample", label: "Lab sample / own snippet" },
-            { value: "own", label: "Own project" },
-            { value: "github", label: "GitHub project" },
-          ]}
-          footnote="Object-oriented class model (Exercise 5)."
-        />
-      </Exp5Card>
-    </div>
-  );
-}
-
-// ─── Tab Icons ────────────────────────────────────────────────────
 const EXP5_TAB_ICONS: Record<Exp5Tab, React.ComponentType<{ className?: string }>> = {
   aim: Target,
   objective: Lightbulb,
@@ -1846,8 +1567,6 @@ export function ObjectOrientedMetricsPage() {
   const [simMode, setSimMode] = useState<"prebuilt" | "custom">("prebuilt");
   const [customClasses, setCustomClasses] = useState<Exp5ClassDef[]>([]);
   const [customRels, setCustomRels] = useState<Exp5Relationship[]>([]);
-  const [quizAnswers, setQuizAnswers] = useState<(number | null)[]>(Array(10).fill(null));
-  const [quizFinished, setQuizFinished] = useState(false);
   const [exerciseDone, setExerciseDone] = useState(false);
 
   const handleSelectClass = useCallback((id: string | null) => {
@@ -1859,8 +1578,6 @@ export function ObjectOrientedMetricsPage() {
     setSimMode("prebuilt");
     setCustomClasses([]);
     setCustomRels([]);
-    setQuizAnswers(Array(10).fill(null));
-    setQuizFinished(false);
     setExerciseDone(false);
     setActiveTab("aim");
   }
