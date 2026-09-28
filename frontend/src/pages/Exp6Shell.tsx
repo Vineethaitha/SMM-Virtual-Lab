@@ -41,6 +41,7 @@ import { Button } from "@/components/ui/button";
 import { LabCard, LabFormula, LabInfoBox, LabKpiCard, LabThresholds } from "@/components/lab/LabCard";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
+import { useTrackExercise } from "@/lib/useTrackExercise";
 import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
 import { cn } from "@/lib/utils";
 
@@ -924,6 +925,7 @@ function ExercisePanel({ onDone }: { onDone: (done: boolean) => void }) {
 function ConclusionSection({ exerciseDone }: { exerciseDone: boolean }) {
   return (
     <ConclusionQuizGate
+      labKey="6"
       paragraphs={COPY.conclusion.body}
       questions={CONCLUSION_QUIZ}
       quizTitle="Experiment 6 — Conclusion quiz"
@@ -977,6 +979,7 @@ function MetricsKpiRow() {
 export function Exp6Shell() {
   const [section, setSection] = useState<Exp6Section>("aim");
   const [exerciseDone, setExerciseDone] = useState(false);
+  useTrackExercise("6", exerciseDone);
 
   function renderBody() {
     if (section === "theory") return <TheorySection />;

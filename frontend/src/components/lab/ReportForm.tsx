@@ -17,15 +17,22 @@ export function ReportField({
   label,
   value,
   onChange,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <label className="text-xs font-medium text-slate-700">
       {label}
-      <input className={REPORT_FIELD_CLASS} value={value} onChange={(e) => onChange(e.target.value)} />
+      <input
+        className={REPORT_FIELD_CLASS}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </label>
   );
 }
@@ -59,26 +66,30 @@ export function ReportStudentFields({
   onChange,
   originOptions,
   footnote,
+  disabled,
 }: {
   form: ReportStudentForm;
   onChange: (key: keyof ReportStudentForm, value: string) => void;
   originOptions: { value: string; label: string }[];
   footnote?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      <ReportField label="Name(s)" value={form.names} onChange={(v) => onChange("names", v)} />
+      <ReportField label="Name(s)" value={form.names} disabled={disabled} onChange={(v) => onChange("names", v)} />
       <ReportField
         label="Registration number(s)"
         value={form.regs}
+        disabled={disabled}
         onChange={(v) => onChange("regs", v)}
       />
-      <ReportField label="Project title" value={form.title} onChange={(v) => onChange("title", v)} />
+      <ReportField label="Project title" value={form.title} disabled={disabled} onChange={(v) => onChange("title", v)} />
       <label className="text-xs font-medium text-slate-700">
         Origin
         <select
           className={REPORT_FIELD_CLASS}
           value={form.origin}
+          disabled={disabled}
           onChange={(e) => onChange("origin", e.target.value)}
         >
           {originOptions.map((o) => (
@@ -88,13 +99,14 @@ export function ReportStudentFields({
           ))}
         </select>
       </label>
-      <ReportField label="GitHub link (if any)" value={form.github} onChange={(v) => onChange("github", v)} />
+      <ReportField label="GitHub link (if any)" value={form.github} disabled={disabled} onChange={(v) => onChange("github", v)} />
       <label className="text-xs font-medium text-slate-700 md:col-span-2">
         Short description
         <textarea
           className={REPORT_FIELD_CLASS}
           rows={2}
           value={form.description}
+          disabled={disabled}
           onChange={(e) => onChange("description", e.target.value)}
         />
       </label>

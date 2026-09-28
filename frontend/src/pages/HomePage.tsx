@@ -1,6 +1,8 @@
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
+  Award,
   BarChart3,
   Beaker,
   BookOpen,
@@ -23,13 +25,15 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EXPERIMENTS } from "@/data/experiments";
 import { FinalLabQuizButton } from "@/components/quiz/ConclusionQuizGate";
 import { SrmOfficialLogo, SrmvlLogo } from "@/components/brand/SrmLogos";
+import { AccountMenu } from "@/components/auth/AccountMenu";
+import { supabase } from "@/lib/supabase";
+import type { LabKey, LabProgressRow } from "@/lib/labProgress";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -177,11 +181,44 @@ function Section({
   );
 }
 
+function StatusPills({ row }: { row?: LabProgressRow }) {
+  const bits = [
+    { label: "Exercise", on: Boolean(row?.exercise_completed_at) },
+    { label: "Quiz", on: Boolean(row?.quiz_completed_at) },
+    { label: "Report", on: Boolean(row?.report_downloaded_at) },
+  ];
+  return (
+    <div className="mb-3 flex flex-wrap gap-1">
+      {bits.map((b) => (
+        <span
+          key={b.label}
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] font-medium",
+            b.on ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500",
+          )}
+        >
+          {b.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export function HomePage() {
   const [openUnits, setOpenUnits] = useState<number[]>([1]);
+  const [progress, setProgress] = useState<LabProgressRow[]>([]);
   const { scrollYProgress } = useScroll();
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.2], [1, 0.9]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.from("lab_progress").select("*").then(({ data }) => {
+      if (data) setProgress(data as LabProgressRow[]);
+    });
+  }, []);
+
+  const byKey = (key: LabKey) => progress.find((r) => r.lab_key === key);
 
   const toggleUnit = (unit: number) => {
     setOpenUnits((prev) => (prev.includes(unit) ? prev.filter((u) => u !== unit) : [...prev, unit]));
@@ -200,12 +237,15 @@ export function HomePage() {
               </div>
             </div>
           </Link>
-          <Link to="/lab/1">
-            <Button size="sm" className="gap-2">
-              <Beaker className="h-4 w-4" />
-              Enter Labs
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            <AccountMenu />
+            <Link to="/lab/1">
+              <Button size="sm" className="gap-2">
+                <Beaker className="h-4 w-4" />
+                Enter Labs
+              </Button>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -345,6 +385,7 @@ export function HomePage() {
                     <CardTitle className="text-lg leading-snug">{exp.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
+                    <StatusPills row={byKey(String(exp.id) as LabKey)} />
                     <p className="mb-4 line-clamp-3 text-sm text-muted-foreground">{exp.description}</p>
                     <div
                       className={cn(
@@ -367,6 +408,27 @@ export function HomePage() {
                 </motion.div>
               );
             })}
+            <motion.div variants={itemVariants} className="sm:col-span-2 lg:col-span-2">
+              <Card className="h-full border-amber-300/80 bg-gradient-to-br from-amber-50 to-white shadow-md">
+                <CardHeader>
+                  <div className="mb-3 flex items-start justify-between">
+                    <div className="rounded-xl bg-amber-400/20 p-3 text-amber-800">
+                      <Award className="h-6 w-6" />
+                    </div>
+                    <Badge className="bg-amber-500 px-2 py-0.5 text-xs text-white">Final</Badge>
+                  </div>
+                  <CardTitle className="text-lg leading-snug">Comprehensive lab quiz</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <StatusPills row={byKey("final")} />
+                  <p className="text-sm text-muted-foreground">
+                    Forty shuffled questions covering all ten experiments. Fullscreen until you finish.
+                    Completing it issues a certificate signed by instructor Dr.T.Grace Shalini.
+                  </p>
+                  <FinalLabQuizButton compact />
+                </CardContent>
+              </Card>
+            </motion.div>
           </div>
         </div>
       </Section>
@@ -469,19 +531,6 @@ export function HomePage() {
                 </Card>
               </motion.div>
             ))}
-          </div>
-        </div>
-      </Section>
-
-      <Section className="border-t border-border bg-slate-50 py-16">
-        <div className="mx-auto max-w-2xl px-4 text-center">
-          <h2 className="mb-2 text-2xl font-bold">After all ten experiments</h2>
-          <p className="mb-6 text-sm text-muted-foreground">
-            Forty shuffled questions (MCQ, numericals, and new case studies). Fullscreen until you finish —
-            leaving early voids the report.
-          </p>
-          <div className="flex justify-center">
-            <FinalLabQuizButton />
           </div>
         </div>
       </Section>

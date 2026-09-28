@@ -2,6 +2,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { Home } from "lucide-react";
 import { EXPERIMENTS } from "@/data/experiments";
 import { SrmvlLogo } from "@/components/brand/SrmLogos";
+import { AccountMenu } from "@/components/auth/AccountMenu";
 import { cn } from "@/lib/utils";
 
 function ExperimentLinks({ current }: { current: number }) {
@@ -81,9 +82,12 @@ export function ExperimentSidebar() {
             <SrmvlLogo className="h-10 w-auto" />
           </Link>
         </div>
-        <nav className="flex flex-col gap-0.5 p-3">
+        <nav className="flex flex-1 flex-col gap-0.5 p-3">
           <ExperimentLinks current={current} />
         </nav>
+        <div className="mt-auto border-t border-border p-3">
+          <AccountMenu />
+        </div>
       </aside>
 
       <div className="w-full border-b border-border bg-white lg:hidden">
@@ -103,6 +107,7 @@ export function ExperimentSidebar() {
               </option>
             ))}
           </select>
+          <AccountMenu />
         </div>
       </div>
     </>

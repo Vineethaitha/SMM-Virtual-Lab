@@ -15,6 +15,7 @@ import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageSh
 import { LabCard, LabFormula, LabInfoBox, LabKpiCard, LabStepList } from "@/components/lab/LabCard";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
+import { useTrackExercise } from "@/lib/useTrackExercise";
 import { EXP9_CONCLUSION_QUIZ, EXP9_METRICS, EXP9_MODULE, EXP9_QUIZ, EXP9_WEEKS } from "@/data/exp9Data";
 import { formatNum } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ const SECTIONS: LabPageSection<Tab>[] = [
 export function Exp9Shell() {
   const [section, setSection] = useState<Tab>("aim");
   const [exerciseDone, setExerciseDone] = useState(false);
+  useTrackExercise("9", exerciseDone);
   const m = EXP9_METRICS;
   const conclusion = `The Payment Gateway sample (12.4 KLOC) recorded ${m.totalDefects} defects over 10 weeks and 14 failures in 2000 hours. Defect density is ${m.density.toFixed(2)} defects/KLOC and λ = ${m.lambda.toFixed(3)} /hour, so R(100) ≈ ${m.r100.toFixed(2)}. Arrivals fell from ${m.firstHalf} in weeks 1–5 to ${m.secondHalf} in weeks 6–10, which is consistent with reliability growth (Jelinski–Moranda / Goel–Okumoto style) rather than a still-rising Rayleigh peak. Release quality is improving but not yet “defect free”: remaining intensity should be watched before a high-risk go-live.`;
 
@@ -215,6 +217,7 @@ export function Exp9Shell() {
     }
     return (
       <ConclusionQuizGate
+        labKey="9"
         paragraphs={[conclusion]}
         questions={EXP9_CONCLUSION_QUIZ.map((q) => ({
           id: q.id,

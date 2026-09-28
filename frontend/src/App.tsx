@@ -3,6 +3,8 @@ import { LabShell } from "@/components/layout/LabShell";
 import { LabProvider } from "@/state/LabContext";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { HomePage } from "@/pages/HomePage";
+import { LoginPage } from "@/pages/LoginPage";
+import { FacultyPage } from "@/pages/FacultyPage";
 import { Exp6Shell } from "@/pages/Exp6Shell";
 import { Exp7Shell } from "@/pages/Exp7Shell";
 import { Exp8Shell } from "@/pages/Exp8Shell";
@@ -13,6 +15,7 @@ import { ObjectOrientedMetricsPage } from "@/pages/ObjectOrientedMetricsPage";
 import { TestCaseManagementPage } from "@/pages/TestCaseManagementPage";
 import { SoftwareSizeEstimationPage } from "@/pages/SoftwareSizeEstimationPage";
 import { getExperiment } from "@/data/experiments";
+import { RequireAuth, RequireFaculty } from "@/components/auth/RequireAuth";
 
 function LabRoute() {
   return (
@@ -43,8 +46,31 @@ function ExperimentGate() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/lab/:id" element={<ExperimentGate />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/"
+        element={
+          <RequireAuth>
+            <HomePage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/faculty"
+        element={
+          <RequireFaculty>
+            <FacultyPage />
+          </RequireFaculty>
+        }
+      />
+      <Route
+        path="/lab/:id"
+        element={
+          <RequireAuth>
+            <ExperimentGate />
+          </RequireAuth>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

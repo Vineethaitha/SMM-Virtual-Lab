@@ -15,6 +15,7 @@ import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageSh
 import { LabCard, LabFormula, LabInfoBox, LabKpiCard, LabStepList, LabThresholds } from "@/components/lab/LabCard";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
+import { useTrackExercise } from "@/lib/useTrackExercise";
 import {
   EXP8_ACTIVITIES,
   EXP8_CONCLUSION_QUIZ,
@@ -45,6 +46,7 @@ export function Exp8Shell() {
     Object.fromEntries(EXP8_ACTIVITIES.map((a) => [a.id, ""])),
   );
   const [exerciseDone, setExerciseDone] = useState(false);
+  useTrackExercise("8", exerciseDone);
 
   const classified = EXP8_ACTIVITIES.filter((a) => choices[a.id]).length;
   const correct = EXP8_ACTIVITIES.filter((a) => choices[a.id] === a.kind).length;
@@ -248,6 +250,7 @@ export function Exp8Shell() {
     }
     return (
       <ConclusionQuizGate
+        labKey="8"
         paragraphs={[conclusion]}
         questions={EXP8_CONCLUSION_QUIZ.map((q) => ({
           id: q.id,

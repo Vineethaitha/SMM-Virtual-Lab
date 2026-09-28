@@ -1,13 +1,16 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Award } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LabCard } from "@/components/lab/LabCard";
 import { FullscreenQuiz, type FullscreenQuizItem } from "@/components/quiz/FullscreenQuiz";
 import type { ReportStudentForm } from "@/components/lab/ReportForm";
 import { FINAL_LAB_QUIZ } from "@/data/finalLabQuiz";
-import { downloadUnifiedLabPdf } from "@/lib/reportPdf";
+import { downloadCompletionCertificate } from "@/lib/reportPdf";
+import { type LabKey, upsertLabProgress } from "@/lib/labProgress";
+import { useAuth } from "@/state/AuthContext";
 
 export function ConclusionQuizGate({
+  labKey,
   paragraphs,
   questions,
   quizTitle,
@@ -19,6 +22,7 @@ export function ConclusionQuizGate({
   extraAction,
   onDownload,
 }: {
+  labKey: LabKey;
   paragraphs: string[];
   questions: FullscreenQuizItem[];
   quizTitle: string;
@@ -31,6 +35,20 @@ export function ConclusionQuizGate({
   onDownload: (student: ReportStudentForm, result: { score: number; total: number }) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
+  const { profile } = useAuth();
+
+  useEffect(() => {
+    if (locked === false) void upsertLabProgress(labKey, { exercise: true });
+  }, [locked, labKey]);
+
+  const mergedSeed = useMemo(
+    () => ({
+      ...studentSeed,
+      names: studentSeed?.names || profile?.full_name || "",
+      regs: studentSeed?.regs || profile?.registration_number || "",
+    }),
+    [studentSeed, profile?.full_name, profile?.registration_number],
+  );
 
   return (
     <div className="space-y-4">
@@ -63,10 +81,17 @@ export function ConclusionQuizGate({
         <FullscreenQuiz
           title={quizTitle}
           questions={questions}
-          studentSeed={studentSeed}
+          studentSeed={mergedSeed}
           originOptions={originOptions}
           footnote={footnote}
-          onDownload={onDownload}
+          onDownload={async (student, result) => {
+            await onDownload(student, result);
+            await upsertLabProgress(labKey, {
+              quizScore: result.score,
+              quizTotal: result.total,
+              report: true,
+            });
+          }}
           onClose={() => setOpen(false)}
         />
       )}
@@ -74,16 +99,19 @@ export function ConclusionQuizGate({
   );
 }
 
-export function FinalLabQuizButton() {
+export function FinalLabQuizButton({ compact }: { compact?: boolean }) {
   const [open, setOpen] = useState(false);
+  const { profile } = useAuth();
   return (
     <>
-      <Button variant="secondary" size="lg" onClick={() => setOpen(true)}>
+      <Button variant={compact ? "default" : "secondary"} size="lg" onClick={() => setOpen(true)}>
         Take comprehensive lab quiz (40 questions)
       </Button>
-      <p className="mt-2 text-xs text-slate-500">
-        Covers Experiments 1–10. Questions and options are shuffled. Fullscreen until you finish.
-      </p>
+      {!compact ? (
+        <p className="mt-2 text-xs text-slate-500">
+          Covers Experiments 1–10. Questions and options are shuffled. Fullscreen until you finish.
+        </p>
+      ) : null}
       {open && (
         <FullscreenQuiz
           title="21CSC403T comprehensive assessment"
@@ -92,27 +120,23 @@ export function FinalLabQuizButton() {
             title: "Comprehensive lab assessment",
             origin: "sample",
             description: "40-question shuffled assessment across Experiments 1-10.",
+            names: profile?.full_name ?? "",
+            regs: profile?.registration_number ?? "",
           }}
           originOptions={[{ value: "sample", label: "Virtual lab (all experiments)" }]}
           footnote="Final assessment — 21CSC403T."
           onDownload={async (student, result) => {
-            await downloadUnifiedLabPdf({
-              experimentNumber: 10,
-              experimentTitle: "Comprehensive lab assessment",
+            await downloadCompletionCertificate({
               names: student.names,
               regs: student.regs,
-              projectTitle: student.title,
-              origin: student.origin,
-              description: student.description,
-              toolNote: "Browser virtual lab. Forty shuffled items spanning size, test management, FPA, surveys, OO, requirements, maintenance, reliability, and process capability.",
-              resultLines: [`Comprehensive quiz score ${result.score} / ${result.total}.`],
-              analysisLines: [
-                "Items include MCQs, numericals, and new case studies (MediSlot, RideNow, CampusLearn, civic reporting, ShopLite) that are not copies of the in-lab samples.",
-              ],
-              conclusion:
-                "The student completed the end-of-course assessment under fullscreen conditions. Leaving fullscreen before the last item voids the report.",
+              score: result.score,
+              total: result.total,
+            });
+            await upsertLabProgress("final", {
+              exercise: true,
               quizScore: result.score,
               quizTotal: result.total,
+              report: true,
             });
           }}
           onClose={() => setOpen(false)}

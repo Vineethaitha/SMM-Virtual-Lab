@@ -12,6 +12,7 @@ import { LabCard, LabFormula, LabInfoBox, LabStepList } from "@/components/lab/L
 import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
+import { useTrackExercise } from "@/lib/useTrackExercise";
 import {
   EXP2_TABS,
   EXP2_QUIZ_BANK,
@@ -60,97 +61,97 @@ const EXP2_CONCLUSION_QUIZ = [
   {
     id: "c3",
     prompt: "Why does this lab ask you to author both positive and negative cases?",
-    expected: "To exercise expected success paths and invalid or boundary input",
+    expected: "Cover success and invalid input",
     explain: "A suite of only happy-path cases under-measures requirement risk.",
     options: [
-      "To exercise expected success paths and invalid or boundary input",
-      "Because negative cases replace requirements",
-      "To increase LOC in the report",
-      "So the PDF can skip the metrics table",
+      "Cover success and invalid input",
+      "Let negatives replace requirements",
+      "Increase LOC in the report",
+      "Skip the metrics PDF table",
     ],
   },
   {
     id: "c4",
     prompt: "Requirement-to-test coverage is complete only when:",
-    expected: "Every requirement id is referenced by at least one test case",
+    expected: "Each requirement has ≥1 test",
     explain: "A matrix with empty requirement rows is a planned-test gap, not a passed suite.",
     options: [
-      "Every requirement id is referenced by at least one test case",
-      "At least one test has status Pass",
-      "The suite has more than ten cases",
+      "Each requirement has ≥1 test",
+      "At least one test is Pass",
+      "The suite has over ten cases",
       "All cases are High priority",
     ],
   },
   {
     id: "c5",
     prompt: "Fail means:",
-    expected: "The case ran to completion and the actual result did not match expected",
+    expected: "Run finished; result mismatched",
     explain: "Fail is evidence of a product or environment mismatch after execution finished.",
     options: [
-      "The tester never started the case",
-      "The case ran to completion and the actual result did not match expected",
-      "The same as Blocked",
+      "The tester never started it",
+      "Run finished; result mismatched",
+      "The same outcome as Blocked",
       "A missing requirement id",
     ],
   },
   {
     id: "c6",
     prompt: "A High priority case should typically be executed:",
-    expected: "Before Low-priority cosmetic checks when time is short",
+    expected: "Ahead of Low-priority cosmetics",
     explain: "Risk-based testing schedules high-impact paths first.",
     options: [
-      "Only after the report is downloaded",
-      "Before Low-priority cosmetic checks when time is short",
-      "Never, because High means deferred",
+      "Only after the PDF download",
+      "Ahead of Low-priority cosmetics",
+      "Never; High means deferred",
       "Only if the requirement has no id",
     ],
   },
   {
     id: "c7",
     prompt: "Boundary-value cases are written to:",
-    expected: "Probe edges of valid and invalid input ranges",
+    expected: "Probe valid/invalid range edges",
     explain: "Defects cluster at limits (min, max, off-by-one), not only at typical mid-range data.",
     options: [
       "Replace all functional cases",
-      "Probe edges of valid and invalid input ranges",
+      "Probe valid/invalid range edges",
       "Measure Halstead volume",
-      "Count Likert scores",
+      "Count Likert-scale scores",
     ],
   },
   {
     id: "c8",
     prompt: "One requirement may map to many tests because:",
-    expected: "Happy path, negative, and boundary conditions often need separate cases",
+    expected: "Happy, negative, and boundary paths",
     explain: "Traceability is many-to-many: one req, several techniques; one test may also cover several reqs.",
     options: [
-      "IEEE forbids more than one test per requirement",
-      "Happy path, negative, and boundary conditions often need separate cases",
-      "Tests cannot mention requirement ids",
-      "Coverage is computed only from LOC",
+      "IEEE allows only one test",
+      "Happy, negative, and boundary paths",
+      "Tests cannot cite requirement ids",
+      "Coverage is computed from LOC",
     ],
   },
   {
     id: "c9",
     prompt: "After a defect fix, the most relevant extra run is:",
-    expected: "A regression set that re-checks previously passing related cases",
+    expected: "Regression of related passing cases",
     explain: "Fixes can break nearby behaviour; regression protects the rest of the suite.",
     options: [
       "Deleting the failed case",
-      "A regression set that re-checks previously passing related cases",
-      "Changing the requirement text only",
+      "Regression of related passing cases",
+      "Editing requirement text only",
       "Marking Blocked as Pass",
     ],
   },
   {
     id: "c10",
     prompt: "Pass rate alone is a weak quality claim if:",
-    expected: "Many requirements still have zero linked cases or many cases are Blocked",
+    expected: "Many untraced reqs or Blocked runs",
     explain: "A 100% pass on a tiny traced subset hides untested risk.",
     options: [
-      "The PDF includes student names",
-      "Many requirements still have zero linked cases or many cases are Blocked",
-      "Priority labels exist",
-      "The suite uses both functional and usability types",
+      "The PDF lists student names",
+      "Many untraced reqs or Blocked runs",
+      "Priority labels are present",
+      "Functional and usability types exist",
     ],
   },
 ];
@@ -457,6 +458,7 @@ export function TestCaseManagementPage() {
 
   // Quiz state
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+  useTrackExercise("2", quizSubmitted);
 
   const activeProject = useMemo(
     () => projects.find(p => p.id === activeProjectId) || null,
@@ -1076,6 +1078,7 @@ export function TestCaseManagementPage() {
           {/* CONCLUSION TAB */}
           {activeTab === "conclusion" && (
             <ConclusionQuizGate
+              labKey="2"
               paragraphs={[
                 "Requirement traceability, test-case authoring, and execution completeness were measured from the student-authored suite.",
                 "A coverage gap remains wherever a requirement has no linked case. Blocked runs are not Fail evidence.",

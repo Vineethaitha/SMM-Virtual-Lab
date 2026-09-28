@@ -23,6 +23,7 @@ import { InsightsList, MetricsDashboard } from "@/components/metrics/Dashboard";
 import { Pipeline } from "@/components/pipeline/Pipeline";
 import { ComparisonPanel } from "@/components/report/ReportPanel";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
+import { useTrackExercise } from "@/lib/useTrackExercise";
 import { LabCard, LabFormula, LabInfoBox, LabStepList, LabThresholds } from "@/components/lab/LabCard";
 import { LabHeroHeader } from "@/components/layout/LabHeroHeader";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
@@ -63,9 +64,9 @@ const EXP1_CONCLUSION_QUIZ = [
   {
     id: "c1",
     prompt: "McCabe cyclomatic complexity counts:",
-    expected: "Independent paths through a function",
+    expected: "Independent function paths",
     explain: "M = E − N + 2P. Each predicate adds a path that should be tested.",
-    options: ["Physical lines only", "Independent paths through a function", "Halstead operands", "Comment density"],
+    options: ["Physical lines only", "Independent function paths", "Halstead operands", "Comment density"],
   },
   {
     id: "c2",
@@ -77,97 +78,97 @@ const EXP1_CONCLUSION_QUIZ = [
   {
     id: "c3",
     prompt: "This lab computes metrics by:",
-    expected: "Parsing Python in the browser without executing it",
+    expected: "In-browser parse, no execute",
     explain: "Static analysis never evals student code.",
     options: [
-      "Running the module as a process",
-      "Parsing Python in the browser without executing it",
-      "Uploading to SonarCloud only",
-      "Counting story points",
+      "Run module as a process",
+      "In-browser parse, no execute",
+      "SonarCloud-only upload",
+      "Count git story points",
     ],
   },
   {
     id: "c4",
     prompt: "In McCabe’s formula M = E − N + 2P, P usually stands for:",
-    expected: "The number of connected components (often 1 for a single function)",
+    expected: "Connected-component count (often 1)",
     explain: "For one connected control-flow graph, P = 1, so M = E − N + 2.",
     options: [
-      "Python version",
-      "The number of connected components (often 1 for a single function)",
-      "Comment percentage",
+      "Python language version",
+      "Connected-component count (often 1)",
+      "Comment-line percentage",
       "Halstead unique operands",
     ],
   },
   {
     id: "c5",
     prompt: "A function with many nested if/else branches typically shows:",
-    expected: "Higher cyclomatic complexity and more test paths",
+    expected: "Higher CC and more paths",
     explain: "Each independent decision adds a path that should be covered.",
     options: [
-      "Lower Halstead volume only",
-      "Higher cyclomatic complexity and more test paths",
-      "Zero SLOC",
-      "A perfect Maintainability Index by definition",
+      "Lower Halstead volume",
+      "Higher CC and more paths",
+      "Zero delivered SLOC",
+      "A perfect MI by rule",
     ],
   },
   {
     id: "c6",
     prompt: "Halstead volume V is computed from:",
-    expected: "Program length N and vocabulary η as N log₂(η)",
+    expected: "N log₂(η) from length and vocabulary",
     explain: "V = N × log₂(η), with N = N1 + N2 and η = η1 + η2.",
     options: [
-      "Only comment lines",
-      "Program length N and vocabulary η as N log₂(η)",
-      "Edges minus nodes",
+      "Comment lines only",
+      "N log₂(η) from length and vocabulary",
+      "Edges minus CFG nodes",
       "Story points × velocity",
     ],
   },
   {
     id: "c7",
     prompt: "The Maintainability Index in this lab is useful because it:",
-    expected: "Combines size, complexity, and Halstead volume into one 0–100-style score",
+    expected: "Combines size, CC, and volume",
     explain: "MI lets you compare before/after refactoring at a glance, not replace the other metrics.",
     options: [
-      "Replaces the need for any other metric",
-      "Combines size, complexity, and Halstead volume into one 0–100-style score",
-      "Counts only failed test cases",
-      "Is the same as Cpk",
+      "Replaces every other metric",
+      "Combines size, CC, and volume",
+      "Counts failed test cases",
+      "Equals process Cpk",
     ],
   },
   {
     id: "c8",
     prompt: "Why save a baseline before refactoring?",
-    expected: "So the comparison tab can show real before vs after metric deltas",
+    expected: "To show real before/after deltas",
     explain: "Without a saved AnalysisResult, you cannot prove the refactor improved CC, MI, or volume.",
     options: [
       "To delete the source file",
-      "So the comparison tab can show real before vs after metric deltas",
+      "To show real before/after deltas",
       "Because COCOMO requires it",
-      "To skip the quiz",
+      "To skip the quiz entirely",
     ],
   },
   {
     id: "c9",
     prompt: "Physical LOC that includes blanks and comments is a weaker size signal than SLOC because:",
-    expected: "Formatting and comments inflate the count without adding executable logic",
+    expected: "Format and comments inflate LOC",
     explain: "SLOC / logical lines better track delivered logic; comments still matter for MI separately.",
     options: [
-      "Formatting and comments inflate the count without adding executable logic",
+      "Format and comments inflate LOC",
       "Comments are illegal in Python",
-      "SLOC is always equal to cyclomatic complexity",
-      "Blanks increase Halstead unique operators",
+      "SLOC always equals McCabe CC",
+      "Blanks raise unique operators",
     ],
   },
   {
     id: "c10",
     prompt: "A practical first refactor when CC is high is to:",
-    expected: "Extract predicates / flatten nests and re-analyze",
+    expected: "Flatten nests, then re-analyze",
     explain: "Smaller functions with fewer decisions drop path count; then confirm with a second run.",
     options: [
       "Add more global variables",
-      "Extract predicates / flatten nests and re-analyze",
-      "Increase nesting to hide branches",
-      "Delete the unit tests",
+      "Flatten nests, then re-analyze",
+      "Increase nesting of branches",
+      "Delete the existing tests",
     ],
   },
 ];
@@ -176,6 +177,7 @@ export function LabShell() {
   const { section, setSection, analyze, analyzing, saveBaseline, analysis, error, sim, baseline } =
     useLab();
   const [exerciseDone, setExerciseDone] = useState(false);
+  useTrackExercise("1", exerciseDone);
   const skipScroll = useRef(true);
   useEffect(() => {
     if (skipScroll.current) {
@@ -550,6 +552,7 @@ function SectionBody({
 
   return (
     <ConclusionQuizGate
+      labKey="1"
       paragraphs={[
         "Size, path count, and operator/operand effort are complementary views of quality.",
         "Metrics guide refactoring: extract predicates, flatten nests, shrink vocabulary — then verify with a second analysis run.",

@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
+import { useTrackExercise } from "@/lib/useTrackExercise";
 import { LabCard as Exp4Card, LabInfoBox as Exp4InfoBox } from "@/components/lab/LabCard";
 import { LabHeroHeader } from "@/components/layout/LabHeroHeader";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
@@ -1243,6 +1244,7 @@ export function CustomerSatisfactionPage() {
   const [simSampleCount, setSimSampleCount] = useState<number>(20);
 
   const [exerciseDone, setExerciseDone] = useState(false);
+  useTrackExercise("4", exerciseDone);
 
   const handleAddResponse = useCallback((r: Exp4Response) => {
     setResponses(prev => [...prev, r]);
@@ -1311,6 +1313,7 @@ export function CustomerSatisfactionPage() {
       case "comparison": return <Exp4ComparisonTab responses={responses} selectedApp={selectedApp} />;
       case "conclusion": return (
         <ConclusionQuizGate
+          labKey="4"
           paragraphs={[
             "Customer satisfaction surveys convert Likert ratings into factor averages and highlight the weakest aspect for improvement.",
             "Open-ended comments add qualitative themes that scores alone cannot explain.",

@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
+import { useTrackExercise } from "@/lib/useTrackExercise";
 import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageShell";
 import {
   LabCard,
@@ -948,6 +949,7 @@ function ConclusionPanel({ exerciseDone }: { exerciseDone: boolean }) {
   }));
   return (
     <ConclusionQuizGate
+      labKey="7"
       paragraphs={COPY.conclusion.body}
       questions={CONCLUSION_QUIZ}
       quizTitle="Experiment 7 — Conclusion quiz"
@@ -987,6 +989,7 @@ function ConclusionPanel({ exerciseDone }: { exerciseDone: boolean }) {
 export function Exp7Shell() {
   const [section, setSection] = useState<Exp7Section>("aim");
   const [exerciseDone, setExerciseDone] = useState(false);
+  useTrackExercise("7", exerciseDone);
 
   function renderBody() {
     if (section === "aim") return <ProseCard section="aim" />;

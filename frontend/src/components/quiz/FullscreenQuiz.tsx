@@ -239,11 +239,12 @@ export function FullscreenQuiz({
   }
 
   async function handleDownload() {
-    if (!canDownload) return;
+    if (!canDownload || downloaded) return;
     setExporting(true);
     try {
       await onDownload(student, { score, total });
       setDownloaded(true);
+      window.setTimeout(() => leave(), 1200);
     } finally {
       setExporting(false);
     }
@@ -412,7 +413,11 @@ export function FullscreenQuiz({
               <div className="space-y-5 px-6 py-6">
                 <ReportStudentFields
                   form={student}
-                  onChange={(key, value) => setStudent((f) => ({ ...f, [key]: value }))}
+                  disabled={downloaded}
+                  onChange={(key, value) => {
+                    if (downloaded) return;
+                    setStudent((f) => ({ ...f, [key]: value }));
+                  }}
                   originOptions={originOptions}
                   footnote={footnote}
                 />
@@ -420,26 +425,22 @@ export function FullscreenQuiz({
                 {downloaded ? (
                   <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-                    Report downloaded. You can return to the lab now.
+                    Report issued for these details. This window will close — you cannot download again under another name.
                   </div>
                 ) : (
                   <p className="text-xs text-slate-500">
-                    Name and registration number are required. The PDF uses the same 21CSC403T layout as Experiment 1.
+                    Name and registration number are required. The PDF is issued once for the name you enter.
                   </p>
                 )}
 
                 <Button
                   size="lg"
                   className="h-12 w-full bg-blue-700 text-base hover:bg-blue-800"
-                  disabled={!canDownload || exporting}
+                  disabled={!canDownload || exporting || downloaded}
                   onClick={() => void handleDownload()}
                 >
                   {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                  {exporting ? "Preparing PDF…" : downloaded ? "Download report again" : "Download report"}
-                </Button>
-
-                <Button variant="ghost" className="w-full text-slate-500" disabled={!downloaded} onClick={leave}>
-                  {downloaded ? "Return to lab" : "Download the report to continue"}
+                  {exporting ? "Preparing PDF…" : downloaded ? "Issued — closing…" : "Download report"}
                 </Button>
               </div>
             </div>

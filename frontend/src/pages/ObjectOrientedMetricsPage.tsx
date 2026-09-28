@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
+import { useTrackExercise } from "@/lib/useTrackExercise";
 import { LabCard as Exp5Card, LabInfoBox as Exp5InfoBox } from "@/components/lab/LabCard";
 import { LabHeroHeader } from "@/components/layout/LabHeroHeader";
 import { ExperimentSidebar } from "@/components/layout/ExperimentSidebar";
@@ -1568,6 +1569,7 @@ export function ObjectOrientedMetricsPage() {
   const [customClasses, setCustomClasses] = useState<Exp5ClassDef[]>([]);
   const [customRels, setCustomRels] = useState<Exp5Relationship[]>([]);
   const [exerciseDone, setExerciseDone] = useState(false);
+  useTrackExercise("5", exerciseDone);
 
   const handleSelectClass = useCallback((id: string | null) => {
     setSelectedClassId(id);
@@ -1611,6 +1613,7 @@ export function ObjectOrientedMetricsPage() {
       case "conclusion":
         return (
           <ConclusionQuizGate
+            labKey="5"
             paragraphs={[
               "Object-oriented design metrics evaluate size, cohesion, coupling, and response-set load at the class level.",
               "High coupling or mixed responsibilities are candidates for interfaces, injection, and separation of concerns.",

@@ -48,6 +48,7 @@ import {
 } from "@/lib/exp3Store";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate } from "@/components/quiz/ConclusionQuizGate";
+import { useTrackExercise } from "@/lib/useTrackExercise";
 
 type Exp3Tab = "aim" | "objective" | "theory" | "procedure" | "simulation" | "exercise" | "conclusion";
 
@@ -72,16 +73,16 @@ const EXP3_CONCLUSION_QUIZ = [
   {
     id: "c2",
     prompt: "COCOMO Basic effort uses which size unit in the classic organic/semi-detached/embedded equations?",
-    expected: "KLOC (thousands of delivered source lines)",
+    expected: "KLOC (thousands of SLOC)",
     explain: "Basic COCOMO estimates effort from thousands of lines of code and a project-mode coefficient pair.",
-    options: ["Function points only", "Story points", "KLOC (thousands of delivered source lines)", "Cyclomatic complexity"],
+    options: ["Function points only", "Story points", "KLOC (thousands of SLOC)", "Cyclomatic complexity"],
   },
   {
     id: "c3",
     prompt: "VAF adjusts UFP using how many general system characteristics in this lab?",
-    expected: "14 GSC ratings on a 0–5 scale",
+    expected: "14 GSC ratings (0–5 each)",
     explain: "The 14 GSCs produce VAF = 0.65 + 0.01 × ΣFi, then AFP = UFP × VAF.",
-    options: ["5 Likert items", "14 GSC ratings on a 0–5 scale", "10 Halstead operators", "6 CK metrics"],
+    options: ["5 Likert items", "14 GSC ratings (0–5 each)", "10 Halstead operators", "6 CK metrics"],
   },
   {
     id: "c4",
@@ -93,30 +94,30 @@ const EXP3_CONCLUSION_QUIZ = [
   {
     id: "c5",
     prompt: "VAF = 0.65 + 0.01 × ΣFi means the adjustment factor ranges about:",
-    expected: "0.65 to 1.35 when each Fi is 0–5",
+    expected: "About 0.65 to 1.35 (Fi is 0–5)",
     explain: "Fourteen characteristics × 5 = 70, so 0.65 + 0.70 = 1.35 at the top.",
-    options: ["Always 1.00", "0.65 to 1.35 when each Fi is 0–5", "0 to 14 only", "Exactly equal to KLOC"],
+    options: ["Always exactly 1.00", "About 0.65 to 1.35 (Fi is 0–5)", "From 0 to 14 only", "Always equal to KLOC"],
   },
   {
     id: "c6",
     prompt: "An Internal Logical File (ILF) differs from an EIF because an ILF is:",
-    expected: "Maintained within the application boundary",
+    expected: "Maintained inside this system",
     explain: "EIFs are referenced files maintained by another system.",
     options: [
       "Always a printed report",
-      "Maintained within the application boundary",
-      "A user inquiry with no data",
-      "A COCOMO mode name",
+      "Maintained inside this system",
+      "A query with no stored data",
+      "A COCOMO mode label",
     ],
   },
   {
     id: "c7",
     prompt: "An External Inquiry (EQ) is best described as:",
-    expected: "An input–output pair that retrieves data without significant processing",
+    expected: "Query I/O with little processing",
     explain: "EQ is a query; EO produces derived/complex output.",
     options: [
-      "A batch file maintained by another product",
-      "An input–output pair that retrieves data without significant processing",
+      "A file owned by another product",
+      "Query I/O with little processing",
       "Thousands of source lines",
       "A Likert survey item",
     ],
@@ -124,37 +125,37 @@ const EXP3_CONCLUSION_QUIZ = [
   {
     id: "c8",
     prompt: "Basic COCOMO organic mode is intended for:",
-    expected: "Smaller, familiar teams and relatively unconstrained environments",
+    expected: "Small familiar teams, loose constraints",
     explain: "Embedded is the opposite: tight constraints and complex interfaces.",
     options: [
-      "Only safety-critical avionics with rigid interfaces",
-      "Smaller, familiar teams and relatively unconstrained environments",
-      "Survey analysis",
-      "Control-chart Cpk only",
+      "Rigid safety-critical avionics only",
+      "Small familiar teams, loose constraints",
+      "Customer-survey analysis only",
+      "Control-chart Cpk studies only",
     ],
   },
   {
     id: "c9",
     prompt: "COCOMO effort (person-months) and development time are:",
-    expected: "Related but not the same; schedule is a separate equation from effort",
+    expected: "Related; schedule is a separate equation",
     explain: "You cannot treat PM and months as interchangeable numbers.",
     options: [
       "Always identical numbers",
-      "Related but not the same; schedule is a separate equation from effort",
+      "Related; schedule is a separate equation",
       "Both equal to UFP",
-      "Unused in this lab",
+      "Unused in this laboratory",
     ],
   },
   {
     id: "c10",
     prompt: "Using raw LOC alone for size is risky because:",
-    expected: "Language, style, and reuse make line counts hard to compare across projects",
+    expected: "Language and style distort line counts",
     explain: "FPA tries to measure delivered functionality more independently of coding style.",
     options: [
       "LOC cannot be typed in a report",
-      "Language, style, and reuse make line counts hard to compare across projects",
+      "Language and style distort line counts",
       "IEEE bans all size metrics",
-      "KLOC is always more accurate than AFP",
+      "KLOC always beats AFP accuracy",
     ],
   },
 ];
@@ -187,6 +188,7 @@ export function SoftwareSizeEstimationPage() {
   const [compComplexity, setCompComplexity] = useState<"low" | "average" | "high">("average");
 
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+  useTrackExercise("3", quizSubmitted);
 
   // Active Project Object
   const activeProject = projects.find((p) => p.id === activeProjectId) || null;
@@ -1126,6 +1128,7 @@ export function SoftwareSizeEstimationPage() {
           {/* 7. CONCLUSION TAB */}
           {activeTab === "conclusion" && (
             <ConclusionQuizGate
+              labKey="3"
               paragraphs={[
                 "Function Point Analysis and COCOMO Basic convert user-visible size into effort and schedule estimates.",
                 "UFP, VAF, AFP, and KLOC must stay consistent with the component and GSC tables before the report is issued.",

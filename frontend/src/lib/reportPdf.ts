@@ -373,6 +373,195 @@ export async function downloadUnifiedLabPdf(input: UnifiedLabReport) {
   pdf.footerAndSave(`21csc403t-exercise${input.experimentNumber}-${safe}.pdf`);
 }
 
+const INSTRUCTOR = "Dr.T.Grace Shalini";
+
+function certificateRef(names: string, regs: string, score: number, total: number): string {
+  const raw = `${ascii(names).toUpperCase()}|${ascii(regs).toUpperCase()}|${score}/${total}`;
+  let h = 2166136261;
+  for (let i = 0; i < raw.length; i += 1) {
+    h ^= raw.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const hex = (h >>> 0).toString(16).padStart(8, "0").toUpperCase();
+  return `21CSC403T-${hex}`;
+}
+
+/** Landscape completion certificate (final comprehensive quiz). */
+export async function downloadCompletionCertificate(input: {
+  names: string;
+  regs: string;
+  score: number;
+  total: number;
+}) {
+  const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "landscape" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const NAVY: [number, number, number] = [11, 27, 51];
+  const GOLD: [number, number, number] = [196, 154, 58];
+  const INK_C: [number, number, number] = [20, 24, 32];
+  const MUTED_C: [number, number, number] = [90, 98, 110];
+  const m = 48;
+  const date = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const ref = certificateRef(input.names, input.regs, input.score, input.total);
+  const headerH = 36;
+  const footerH = 36;
+
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageW, pageH, "F");
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, pageW, headerH, "F");
+  doc.setFillColor(...GOLD);
+  doc.rect(0, headerH, pageW, 3, "F");
+  doc.setFillColor(...NAVY);
+  doc.rect(0, pageH - footerH, pageW, footerH, "F");
+  doc.setFillColor(...GOLD);
+  doc.rect(0, pageH - footerH - 3, pageW, 3, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.text("21CSC403T Virtual Laboratory", m, 22);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(232, 214, 160);
+  doc.text("Software Metrics & Measurement", pageW - m, 22, { align: "right" });
+
+  const base = import.meta.env.BASE_URL ?? "/";
+  const [official, srmvl] = await Promise.all([
+    loadScaled(`${base}srm-official-logo.jpg`, 34),
+    loadScaled(`${base}srmvl-logo.png`, 26),
+  ]);
+  let y = headerH + 16;
+  let logoX = m;
+  if (official) {
+    doc.addImage(official.data, official.fmt, logoX, y, official.w, official.h);
+    logoX += official.w + 12;
+  }
+  if (srmvl) doc.addImage(srmvl.data, srmvl.fmt, logoX, y + 4, srmvl.w, srmvl.h);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...MUTED_C);
+  [
+    `Certificate no: ${ref}`,
+    "Department of Computational Intelligence",
+    "SRM Institute of Science and Technology",
+  ].forEach((line, i) => {
+    doc.text(line, pageW - m, headerH + 20 + i * 11, { align: "right" });
+  });
+
+  y = headerH + 62;
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.8);
+  doc.line(m, y, pageW - m, y);
+
+  const top = y;
+  const bot = pageH - footerH - 12;
+  const at = (t: number) => top + (bot - top) * t;
+
+  y = at(0.07);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...GOLD);
+  doc.text("CERTIFICATE OF COMPLETION", m, y);
+
+  y = at(0.16);
+  doc.setFont("times", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(...INK_C);
+  doc.text("Software Metrics & Measurement", m, y);
+
+  y = at(0.24);
+  doc.setFont("times", "italic");
+  doc.setFontSize(14);
+  doc.setTextColor(50, 58, 72);
+  doc.text("21CSC403T Virtual Laboratory  -  Comprehensive Assessment", m, y);
+
+  y = at(0.32);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...MUTED_C);
+  doc.text("Instructor", m, y);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...INK_C);
+  doc.text(INSTRUCTOR, m + 62, y);
+
+  y = at(0.44);
+  doc.setFont("times", "bold");
+  doc.setFontSize(34);
+  doc.text(ascii(input.names) || "Student", m, y);
+
+  y = at(0.56);
+  const colW = (pageW - m * 2) / 3;
+  const details: [string, string][] = [
+    ["Date", date],
+    ["Registration", ascii(input.regs) || "-"],
+    ["Assessment", `${input.score} / ${input.total}`],
+  ];
+  details.forEach(([label, value], i) => {
+    const x = m + i * colW;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...MUTED_C);
+    doc.text(label.toUpperCase(), x, y);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...INK_C);
+    doc.text(value, x, y + 16);
+  });
+
+  const pillX = m + 2 * colW + 96;
+  const pillY = y + 2;
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(1.1);
+  doc.roundedRect(pillX, pillY, 72, 22, 3, 3, "S");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...GOLD);
+  doc.text(`${input.score} / ${input.total}`, pillX + 36, pillY + 15, { align: "center" });
+
+  y = at(0.7);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(55, 62, 74);
+  const certCopy =
+    "This certifies that the student completed the 40-question comprehensive assessment of the 21CSC403T Virtual Laboratory under locked fullscreen conditions.";
+  const certLines = doc.splitTextToSize(certCopy, pageW - m * 2) as string[];
+  const certLead = Math.min(24, (at(0.82) - y) / Math.max(certLines.length, 1));
+  certLines.forEach((line: string) => {
+    doc.text(line, m, y);
+    y += certLead;
+  });
+
+  y = at(0.84);
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.9);
+  doc.line(m, y, pageW - m, y);
+
+  y = at(0.91);
+  doc.setDrawColor(...NAVY);
+  doc.setLineWidth(0.6);
+  doc.line(m, y, m + 180, y);
+  y += 16;
+  doc.setFont("times", "italic");
+  doc.setFontSize(14);
+  doc.setTextColor(...INK_C);
+  doc.text(INSTRUCTOR, m, y);
+  y += 15;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(...MUTED_C);
+  doc.text("Instructor  ·  Department of Computational Intelligence", m, y);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text("21CSC403T Virtual Lab  ·  SRM Institute of Science and Technology", m, pageH - 14);
+  doc.text(ref, pageW - m, pageH - 14, { align: "right" });
+
+  doc.save(`21csc403t-certificate-${ascii(input.regs).replace(/[^\w-]+/g, "-") || "student"}.pdf`);
+}
+
 export interface Exp4PdfInput {
   names: string;
   regs: string;
