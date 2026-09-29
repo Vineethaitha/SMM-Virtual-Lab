@@ -3,6 +3,8 @@ import { LabShell } from "@/components/layout/LabShell";
 import { LabProvider } from "@/state/LabContext";
 import { ComingSoonPage } from "@/pages/ComingSoonPage";
 import { HomePage } from "@/pages/HomePage";
+import { LoginPage } from "@/pages/LoginPage";
+import { FacultyPage } from "@/pages/faculty/FacultyPage";
 import { Exp6Shell } from "@/pages/Exp6Shell";
 import { Exp7Shell } from "@/pages/Exp7Shell";
 import { Exp8Shell } from "@/pages/Exp8Shell";
@@ -13,6 +15,8 @@ import { ObjectOrientedMetricsPage } from "@/pages/ObjectOrientedMetricsPage";
 import { TestCaseManagementPage } from "@/pages/TestCaseManagementPage";
 import { SoftwareSizeEstimationPage } from "@/pages/SoftwareSizeEstimationPage";
 import { getExperiment } from "@/data/experiments";
+import { RequireAuth, RequireFaculty } from "@/components/auth/RequireAuth";
+import { LockedExperimentPage } from "@/pages/LockedExperimentPage";import { useLabProgress } from "@/lib/useLabProgress";
 
 function LabRoute() {
   return (
@@ -26,8 +30,15 @@ function ExperimentGate() {
   const { id } = useParams();
   const expId = Number(id);
   const exp = getExperiment(expId);
+  const { loaded, isUnlocked } = useLabProgress();
   if (!exp) return <Navigate to="/" replace />;
   if (!exp.implemented) return <ComingSoonPage />;
+  if (!loaded) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-slate-500">Loading your progress…</div>
+    );
+  }
+  if (!isUnlocked(expId)) return <LockedExperimentPage id={expId} />;
   if (expId === 2) return <TestCaseManagementPage />;
   if (expId === 3) return <SoftwareSizeEstimationPage />;
   if (expId === 4) return <CustomerSatisfactionPage />;
@@ -43,8 +54,31 @@ function ExperimentGate() {
 export default function App() {
   return (
     <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/lab/:id" element={<ExperimentGate />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/"
+        element={
+          <RequireAuth>
+            <HomePage />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/faculty"
+        element={
+          <RequireFaculty>
+            <FacultyPage />
+          </RequireFaculty>
+        }
+      />
+      <Route
+        path="/lab/:id"
+        element={
+          <RequireAuth>
+            <ExperimentGate />
+          </RequireAuth>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

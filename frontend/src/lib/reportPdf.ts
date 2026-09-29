@@ -13,9 +13,11 @@ import type {
 
 type Rows = ReturnType<typeof compareAnalyses>;
 
-const PRIMARY: [number, number, number] = [37, 99, 235];
+const NAVY: [number, number, number] = [11, 27, 51];
+const GOLD: [number, number, number] = [196, 154, 58];
+const PRIMARY: [number, number, number] = [11, 27, 51];
 const INK: [number, number, number] = [17, 24, 39];
-const MUTED: [number, number, number] = [107, 114, 128];
+const MUTED: [number, number, number] = [71, 85, 105];
 const LINE: [number, number, number] = [214, 222, 234];
 
 export function ascii(input: string | number | null | undefined): string {
@@ -82,6 +84,75 @@ async function loadScaled(url: string, targetH: number): Promise<LoadedImage | n
   }
 }
 
+const CREAM: [number, number, number] = [248, 244, 234];
+const PASS: [number, number, number] = [4, 120, 87];
+const FAIL: [number, number, number] = [190, 18, 60];
+
+export interface QuizReviewEntry {
+  prompt: string;
+  chosen: string;
+  expected: string;
+  correct: boolean;
+}
+
+export interface QuizAppendix {
+  title: string;
+  score: number;
+  total: number;
+  entries: QuizReviewEntry[];
+}
+
+let activeAppendix: QuizAppendix | null = null;
+
+/** The quiz review attached to the next PDF generated (set by the fullscreen quiz around its download). */
+export function setReportQuizAppendix(appendix: QuizAppendix | null) {
+  activeAppendix = appendix;
+}
+
+function pct(score: number, total: number) {
+  return total > 0 ? Math.round((score / total) * 100) : 0;
+}
+
+type CertificateInput = { names: string; regs: string; score: number; total: number };
+
+/** Everything needed to rebuild an issued report later, stored with the student's progress row. */
+export type SavedReport =
+  | { kind: "lab"; issuedAt: string; input: UnifiedLabReport; appendix: QuizAppendix | null }
+  | { kind: "final"; issuedAt: string; input: CertificateInput; appendix: QuizAppendix | null };
+
+let issuedAtOverride: string | null = null;
+let lastReport: SavedReport | null = null;
+
+/** Returns (and clears) the report most recently generated in this session. */
+export function takeLastReport(): SavedReport | null {
+  const report = lastReport;
+  lastReport = null;
+  return report;
+}
+
+/** Re-download a previously issued report exactly as it was issued. */
+export async function downloadSavedReport(report: SavedReport) {
+  const previous = activeAppendix;
+  activeAppendix = report.appendix;
+  issuedAtOverride = report.issuedAt;
+  try {
+    if (report.kind === "lab") await downloadUnifiedLabPdf(report.input);
+    else await downloadCompletionCertificate(report.input);
+  } finally {
+    activeAppendix = previous;
+    issuedAtOverride = null;
+    lastReport = null;
+  }
+}
+
+function issuedOn() {
+  return issuedAtOverride ? new Date(issuedAtOverride) : new Date();
+}
+
+function issuedDate() {
+  return issuedOn().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
+
 class LabPdf {
   doc: jsPDF;
   pageW: number;
@@ -90,32 +161,224 @@ class LabPdf {
   contentW: number;
   footerY: number;
   y: number;
+  section = 0;
+  appendix: QuizAppendix | null;
 
-  constructor() {
-    this.doc = new jsPDF({ unit: "pt", format: "a4" });
+  constructor(doc?: jsPDF) {
+    this.doc = doc ?? new jsPDF({ unit: "pt", format: "a4" });
     this.pageW = this.doc.internal.pageSize.getWidth();
     this.pageH = this.doc.internal.pageSize.getHeight();
     this.contentW = this.pageW - this.margin * 2;
-    this.footerY = this.pageH - 30;
-    this.y = this.margin;
+    this.footerY = this.pageH - 46;
+    this.y = 40;
+    this.appendix = activeAppendix;
+  }
+
+  paintTopBand() {
+    this.doc.setFillColor(...NAVY);
+    this.doc.rect(0, 0, this.pageW, 22, "F");
+    this.doc.setFillColor(...GOLD);
+    this.doc.rect(0, 22, this.pageW, 3, "F");
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(9);
+    this.doc.setTextColor(255, 255, 255);
+    this.doc.text("21CSC403T Virtual Laboratory", this.margin, 15);
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setTextColor(232, 214, 160);
+    this.doc.text("Software Metrics & Measurement", this.pageW - this.margin, 15, { align: "right" });
+  }
+
+  newPage() {
+    this.doc.addPage("a4", "portrait");
+    this.paintTopBand();
+    this.y = 50;
   }
 
   ensureSpace(needed: number) {
-    if (this.y + needed > this.footerY - 12) {
-      this.doc.addPage();
-      this.y = this.margin;
-    }
+    if (this.y + needed > this.footerY - 8) this.newPage();
   }
 
   heading(text: string) {
-    this.ensureSpace(40);
-    this.doc.setFillColor(...PRIMARY);
-    this.doc.rect(this.margin, this.y - 10, 3.5, 15, "F");
+    this.ensureSpace(48);
+    this.y += 6;
+    this.section += 1;
+    const label = ascii(text).replace(/^\d+\.\s*/, "");
+    this.doc.setFillColor(...NAVY);
+    this.doc.roundedRect(this.margin, this.y - 12, 18, 18, 3, 3, "F");
     this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(12);
+    this.doc.setFontSize(9);
+    this.doc.setTextColor(232, 214, 160);
+    this.doc.text(String(this.section), this.margin + 9, this.y + 0.5, { align: "center" });
+    this.doc.setFontSize(12.5);
+    this.doc.setTextColor(...NAVY);
+    this.doc.text(label, this.margin + 26, this.y + 1);
+    this.doc.setDrawColor(...LINE);
+    this.doc.setLineWidth(0.6);
+    this.doc.line(this.margin + 26, this.y + 8, this.pageW - this.margin, this.y + 8);
+    this.y += 24;
+  }
+
+  listItem(text: string) {
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(9.5);
+    const lines = this.doc.splitTextToSize(ascii(text) || "-", this.contentW - 14);
+    lines.forEach((line: string, i: number) => {
+      this.ensureSpace(14);
+      if (i === 0) {
+        this.doc.setFillColor(...GOLD);
+        this.doc.rect(this.margin + 1, this.y - 5, 4, 4, "F");
+      }
+      this.doc.setTextColor(...INK);
+      this.doc.text(line, this.margin + 14, this.y);
+      this.y += 14;
+    });
+    this.y += 2;
+  }
+
+  callout(text: string) {
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(10);
+    const lines = this.doc.splitTextToSize(ascii(text) || "-", this.contentW - 30) as string[];
+    const h = lines.length * 14 + 20;
+    this.ensureSpace(h + 8);
+    this.doc.setFillColor(...CREAM);
+    this.doc.rect(this.margin, this.y, this.contentW, h, "F");
+    this.doc.setFillColor(...GOLD);
+    this.doc.rect(this.margin, this.y, 3, h, "F");
     this.doc.setTextColor(...INK);
-    this.doc.text(ascii(text), this.margin + 11, this.y + 2);
+    lines.forEach((line, i) => this.doc.text(line, this.margin + 16, this.y + 18 + i * 14));
+    this.y += h + 12;
+  }
+
+  kvGrid(pairs: [string, string][]) {
+    const rows = pairs.filter(([, v]) => ascii(v));
+    if (!rows.length) return;
+    const colW = this.contentW / 2;
+    const rowH = 30;
+    const h = Math.ceil(rows.length / 2) * rowH + 8;
+    this.ensureSpace(h + 10);
+    const top = this.y;
+    this.doc.setDrawColor(...LINE);
+    this.doc.setLineWidth(0.6);
+    this.doc.roundedRect(this.margin, top, this.contentW, h, 4, 4, "S");
+    rows.forEach(([label, value], i) => {
+      const x = this.margin + 14 + (i % 2) * colW;
+      const y = top + 16 + Math.floor(i / 2) * rowH;
+      this.doc.setFont("helvetica", "bold");
+      this.doc.setFontSize(7);
+      this.doc.setTextColor(...MUTED);
+      this.doc.text(label.toUpperCase(), x, y);
+      this.doc.setFont("helvetica", "normal");
+      this.doc.setFontSize(9.5);
+      this.doc.setTextColor(...INK);
+      const v = (this.doc.splitTextToSize(ascii(value), colW - 24) as string[])[0] ?? "";
+      this.doc.text(v, x, y + 12);
+    });
+    this.y = top + h + 14;
+  }
+
+  scoreBar(score: number, total: number) {
+    this.ensureSpace(58);
+    const p = pct(score, total);
+    const top = this.y;
+    this.doc.setFont("times", "bold");
+    this.doc.setFontSize(26);
+    this.doc.setTextColor(...NAVY);
+    this.doc.text(`${score} / ${total}`, this.margin, top + 20);
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(9);
+    this.doc.setTextColor(...MUTED);
+    this.doc.text(`${p}% correct  ·  locked fullscreen assessment`, this.margin, top + 36);
+    const barX = this.margin + 190;
+    const barW = this.contentW - 190;
+    this.doc.setFillColor(232, 236, 242);
+    this.doc.roundedRect(barX, top + 10, barW, 9, 4.5, 4.5, "F");
+    if (p > 0) {
+      this.doc.setFillColor(...GOLD);
+      this.doc.roundedRect(barX, top + 10, Math.max(9, (barW * p) / 100), 9, 4.5, 4.5, "F");
+    }
+    this.doc.setFontSize(8);
+    this.doc.text("0%", barX, top + 32);
+    this.doc.text("100%", barX + barW, top + 32, { align: "right" });
+    this.y = top + 52;
+  }
+
+  /** Answer-by-answer review of the quiz, on its own page(s). */
+  quizReview(appendix: QuizAppendix) {
+    this.newPage();
+    this.section += 1;
+    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(8.5);
+    this.doc.setTextColor(...GOLD);
+    this.doc.text(`APPENDIX  ·  ASSESSMENT REVIEW`, this.margin, this.y);
     this.y += 20;
+    this.doc.setFont("times", "bold");
+    this.doc.setFontSize(19);
+    this.doc.setTextColor(...NAVY);
+    this.doc.text("Quiz answers and key", this.margin, this.y);
+    this.y += 15;
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(9.5);
+    this.doc.setTextColor(...MUTED);
+    this.doc.text(ascii(appendix.title), this.margin, this.y);
+    this.y += 18;
+
+    const correct = appendix.entries.filter((e) => e.correct).length;
+    const tiles: [string, string, [number, number, number]][] = [
+      ["Score", `${appendix.score} / ${appendix.total}`, NAVY],
+      ["Percentage", `${pct(appendix.score, appendix.total)}%`, NAVY],
+      ["Correct", String(correct), PASS],
+      ["Incorrect", String(appendix.entries.length - correct), FAIL],
+    ];
+    const gap = 10;
+    const tw = (this.contentW - gap * 3) / 4;
+    tiles.forEach(([label, value, color], i) => {
+      const x = this.margin + i * (tw + gap);
+      this.doc.setFillColor(...CREAM);
+      this.doc.setDrawColor(...GOLD);
+      this.doc.setLineWidth(0.6);
+      this.doc.roundedRect(x, this.y, tw, 44, 4, 4, "FD");
+      this.doc.setFont("helvetica", "bold");
+      this.doc.setFontSize(7);
+      this.doc.setTextColor(...MUTED);
+      this.doc.text(label.toUpperCase(), x + 10, this.y + 14);
+      this.doc.setFontSize(14);
+      this.doc.setTextColor(...color);
+      this.doc.text(value, x + 10, this.y + 33);
+    });
+    this.y += 60;
+
+    autoTable(this.doc, {
+      startY: this.y,
+      margin: { left: this.margin, right: this.margin, top: 50, bottom: this.pageH - this.footerY + 10 },
+      head: [["#", "Question", "Your answer", "Correct answer", "Result"]],
+      body: appendix.entries.map((e, i) => [
+        String(i + 1),
+        ascii(e.prompt),
+        ascii(e.chosen) || "-",
+        ascii(e.expected),
+        e.correct ? "Correct" : "Wrong",
+      ]),
+      styles: { fontSize: 8.5, cellPadding: 5, textColor: INK, lineColor: LINE, lineWidth: 0.5, valign: "top" },
+      headStyles: { fillColor: NAVY, textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [250, 248, 243] },
+      columnStyles: {
+        0: { cellWidth: 22, halign: "center", textColor: MUTED },
+        2: { cellWidth: 104 },
+        3: { cellWidth: 104 },
+        4: { cellWidth: 50, halign: "center", fontStyle: "bold" },
+      },
+      didParseCell: (data) => {
+        if (data.section !== "body") return;
+        const entry = appendix.entries[data.row.index];
+        if (!entry) return;
+        if (data.column.index === 4) data.cell.styles.textColor = entry.correct ? PASS : FAIL;
+        if (data.column.index === 2 && !entry.correct) data.cell.styles.textColor = FAIL;
+        if (data.column.index === 3) data.cell.styles.textColor = PASS;
+      },
+      didDrawPage: () => this.paintTopBand(),
+    });
+    this.y = (this.doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 22;
   }
 
   field(label: string, value: string) {
@@ -132,7 +395,7 @@ class LabPdf {
         this.doc.setTextColor(...INK);
         this.doc.text(labelText, this.margin, this.y);
         this.doc.setFont("helvetica", "normal");
-        this.doc.setTextColor(...MUTED);
+        this.doc.setTextColor(...INK);
       }
       this.doc.text(line, this.margin + offset, this.y);
       this.y += 14;
@@ -185,67 +448,153 @@ class LabPdf {
     for (let i = centerFrom; i < head.length; i += 1) columnStyles[i] = { halign: "center" };
     autoTable(this.doc, {
       startY: this.y,
-      margin: { left: this.margin, right: this.margin },
+      margin: { left: this.margin, right: this.margin, top: 50, bottom: this.pageH - this.footerY + 10 },
       head: [head],
       body,
       styles: { fontSize: 9, cellPadding: 5, textColor: INK, lineColor: LINE, lineWidth: 0.5 },
       headStyles: { fillColor: PRIMARY, textColor: [255, 255, 255], fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [245, 248, 253] },
+      alternateRowStyles: { fillColor: [250, 248, 243] },
       columnStyles,
+      didDrawPage: () => this.paintTopBand(),
     });
     this.y = (this.doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 22;
   }
 
   async header(title: string, subtitle: string) {
+    this.paintTopBand();
+    this.y = 40;
     const base = import.meta.env.BASE_URL ?? "/";
     const [official, srmvl] = await Promise.all([
-      loadScaled(`${base}srm-official-logo.jpg`, 40),
-      loadScaled(`${base}srmvl-logo.png`, 26),
+      loadScaled(`${base}srm-official-logo.jpg`, 36),
+      loadScaled(`${base}srmvl-logo.png`, 24),
     ]);
     if (official) this.doc.addImage(official.data, official.fmt, this.margin, this.y, official.w, official.h);
     if (srmvl) {
       this.doc.addImage(srmvl.data, srmvl.fmt, this.pageW - this.margin - srmvl.w, this.y + 6, srmvl.w, srmvl.h);
     }
-    this.y += 46;
-    this.doc.setDrawColor(...PRIMARY);
-    this.doc.setLineWidth(1.4);
+    this.y += 48;
+    this.doc.setDrawColor(...GOLD);
+    this.doc.setLineWidth(1);
     this.doc.line(this.margin, this.y, this.pageW - this.margin, this.y);
-    this.y += 22;
+    this.y += 24;
+
+    const expNo = subtitle.match(/Exercise (\d+)/)?.[1];
     this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(16);
-    this.doc.setTextColor(...INK);
-    this.doc.text(ascii(title), this.margin, this.y);
-    this.y += 16;
+    this.doc.setFontSize(8.5);
+    this.doc.setTextColor(...GOLD);
+    this.doc.text(expNo ? `EXPERIMENT ${expNo}  ·  LAB REPORT` : "LAB REPORT", this.margin, this.y);
+    this.y += 22;
+    this.doc.setFont("times", "bold");
+    this.doc.setFontSize(22);
+    this.doc.setTextColor(...NAVY);
+    const titleLines = this.doc.splitTextToSize(ascii(title), this.contentW) as string[];
+    titleLines.forEach((line) => {
+      this.doc.text(line, this.margin, this.y);
+      this.y += 24;
+    });
+    this.y -= 8;
     this.doc.setFont("helvetica", "normal");
     this.doc.setFontSize(9.5);
     this.doc.setTextColor(...MUTED);
-    this.doc.text(ascii(subtitle), this.margin, this.y);
-    this.y += 24;
+    this.doc.text(`21CSC403T Software Metrics & Measurement  ·  Issued ${issuedDate()}`, this.margin, this.y);
+    this.y += 22;
   }
 
-  footerAndSave(filename: string) {
+  /** Closing declaration block with the instructor line. */
+  declaration(names: string, regs: string, completed = "the experiment exercise and the locked conclusion assessment") {
+    this.ensureSpace(96);
+    this.y += 10;
+    const top = this.y;
+    this.doc.setDrawColor(...GOLD);
+    this.doc.setLineWidth(0.8);
+    this.doc.line(this.margin, top, this.pageW - this.margin, top);
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(8.5);
+    this.doc.setTextColor(...MUTED);
+    const text = `This report was generated by the 21CSC403T Virtual Laboratory for ${ascii(names) || "the student"} (${ascii(regs) || "-"}) after completing ${completed}.`;
+    const lines = this.doc.splitTextToSize(text, this.contentW) as string[];
+    lines.forEach((line, i) => this.doc.text(line, this.margin, top + 18 + i * 12));
+    const sigY = top + 30 + lines.length * 12 + 18;
+    this.doc.setDrawColor(...NAVY);
+    this.doc.setLineWidth(0.6);
+    this.doc.line(this.margin, sigY, this.margin + 170, sigY);
+    this.doc.line(this.pageW - this.margin - 170, sigY, this.pageW - this.margin, sigY);
+    this.doc.setFont("times", "italic");
+    this.doc.setFontSize(11);
+    this.doc.setTextColor(...INK);
+    this.doc.text(ascii(names) || "Student", this.margin, sigY + 14);
+    this.doc.text(INSTRUCTOR, this.pageW - this.margin, sigY + 14, { align: "right" });
+    this.doc.setFont("helvetica", "normal");
+    this.doc.setFontSize(8);
+    this.doc.setTextColor(...MUTED);
+    this.doc.text("Student", this.margin, sigY + 26);
+    this.doc.text("Instructor", this.pageW - this.margin, sigY + 26, { align: "right" });
+    this.y = sigY + 36;
+  }
+
+  footerAndSave(filename: string, fromPage = 1) {
+    if (this.appendix) this.quizReview(this.appendix);
     const pages = this.doc.getNumberOfPages();
-    for (let p = 1; p <= pages; p += 1) {
+    for (let p = fromPage; p <= pages; p += 1) {
       this.doc.setPage(p);
-      this.doc.setDrawColor(...LINE);
-      this.doc.setLineWidth(0.5);
-      this.doc.line(this.margin, this.footerY - 8, this.pageW - this.margin, this.footerY - 8);
+      this.doc.setFillColor(...GOLD);
+      this.doc.rect(0, this.pageH - 32, this.pageW, 3, "F");
+      this.doc.setFillColor(...NAVY);
+      this.doc.rect(0, this.pageH - 29, this.pageW, 29, "F");
       this.doc.setFont("helvetica", "normal");
       this.doc.setFontSize(8);
-      this.doc.setTextColor(...MUTED);
-      this.doc.text("SRM Institute of Science and Technology - 21CSC403T Virtual Lab", this.margin, this.footerY);
-      this.doc.text(`Page ${p} of ${pages}`, this.pageW - this.margin, this.footerY, { align: "right" });
+      this.doc.setTextColor(255, 255, 255);
+      this.doc.text(
+        "Department of Computational Intelligence  ·  SRM Institute of Science and Technology",
+        this.margin,
+        this.pageH - 12,
+      );
+      this.doc.text(`Page ${p} of ${pages}`, this.pageW - this.margin, this.pageH - 12, { align: "right" });
     }
     this.doc.save(filename);
   }
 }
 
 function studentBlock(pdf: LabPdf, form: { names: string; regs: string; title?: string }) {
-  pdf.heading("1. Student Details");
-  pdf.field("Name(s)", form.names);
-  pdf.field("Registration number(s)", form.regs);
-  if (form.title) pdf.field("Project title", form.title);
-  pdf.y += 6;
+  const boxH = 70;
+  pdf.ensureSpace(boxH + 18);
+  const top = pdf.y;
+  const { doc, margin, contentW } = pdf;
+  doc.setFillColor(...CREAM);
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.9);
+  doc.roundedRect(margin, top, contentW, boxH, 5, 5, "FD");
+  doc.setFillColor(...NAVY);
+  doc.roundedRect(margin, top, 5, boxH, 2, 2, "F");
+
+  const quiz = pdf.appendix;
+  const cols: { label: string; value: string; x: number; w: number }[] = [
+    { label: "Student name", value: ascii(form.names) || "-", x: margin + 20, w: contentW * 0.44 },
+    { label: "Registration no.", value: ascii(form.regs) || "-", x: margin + 20 + contentW * 0.44, w: contentW * 0.26 },
+    {
+      label: quiz ? "Quiz score" : "Issued",
+      value: quiz ? `${quiz.score} / ${quiz.total}  (${pct(quiz.score, quiz.total)}%)` : issuedDate(),
+      x: margin + 20 + contentW * 0.7,
+      w: contentW * 0.28,
+    },
+  ];
+  cols.forEach(({ label, value, x, w }) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(...GOLD);
+    doc.text(label.toUpperCase(), x, top + 22);
+    doc.setFontSize(label === "Student name" ? 13 : 11.5);
+    doc.setTextColor(...INK);
+    const v = (doc.splitTextToSize(value, w - 12) as string[])[0] ?? "-";
+    doc.text(v, x, top + 40);
+  });
+  if (form.title) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...MUTED);
+    doc.text((doc.splitTextToSize(ascii(form.title), contentW - 40) as string[])[0] ?? "", margin + 20, top + 58);
+  }
+  pdf.y = top + boxH + 18;
 }
 
 export async function downloadReportPdf(
@@ -332,45 +681,269 @@ export interface UnifiedLabReport {
 
 export async function downloadUnifiedLabPdf(input: UnifiedLabReport) {
   const pdf = new LabPdf();
-  const date = new Date().toLocaleDateString();
-  await pdf.header(
-    input.projectTitle || input.experimentTitle,
-    `21CSC403T Virtual Lab - Exercise ${input.experimentNumber} Report  |  Generated ${date}`,
+  lastReport = { kind: "lab", issuedAt: issuedOn().toISOString(), input, appendix: pdf.appendix };
+  await pdf.header(input.experimentTitle, `Exercise ${input.experimentNumber}`);
+
+  const project = input.projectTitle && input.projectTitle !== input.experimentTitle ? input.projectTitle : "";
+  studentBlock(pdf, { names: input.names, regs: input.regs, title: project });
+
+  pdf.heading("Experiment details");
+  pdf.kvGrid([
+    ["Experiment", `${input.experimentNumber}. ${input.experimentTitle}`],
+    ["Course", "21CSC403T Software Metrics & Measurement"],
+    ["Project / dataset", input.projectTitle || input.experimentTitle],
+    ["Origin", input.origin ? `${input.origin}${input.github ? ` (${input.github})` : ""}` : ""],
+    ["Issued on", issuedDate()],
+    ["Instructor", INSTRUCTOR],
+  ]);
+  if (input.description) pdf.body(input.description);
+
+  pdf.heading("Tool & method");
+  pdf.body(
+    input.toolNote ||
+      "Completed in the 21CSC403T browser virtual lab. Student artefacts are not executed as production software.",
   );
 
-  studentBlock(pdf, { names: input.names, regs: input.regs, title: input.projectTitle || input.experimentTitle });
-  if (input.origin) pdf.field("Origin", `${input.origin}${input.github ? ` (${input.github})` : ""}`);
-  if (input.description) pdf.field("Description", input.description);
-  pdf.y += 6;
-
-  pdf.heading("2. Tool & Metrics");
-  pdf.body(input.toolNote || "Completed in the 21CSC403T browser virtual lab. Student artefacts are not executed as production software.");
-  pdf.y += 6;
-
-  pdf.heading("3. Results");
+  pdf.heading("Results");
   if (input.resultLines.length === 0) pdf.body("No quantitative results were recorded.");
-  else input.resultLines.forEach((line) => pdf.body(line));
-  pdf.y += 4;
+  else input.resultLines.forEach((line) => pdf.listItem(line));
 
-  pdf.heading("4. Analysis & Interpretation");
+  pdf.heading("Analysis & interpretation");
   if (input.analysisLines.length === 0) pdf.body("See conclusion.");
-  else input.analysisLines.forEach((line) => pdf.body(line));
-  pdf.y += 4;
+  else input.analysisLines.forEach((line) => pdf.listItem(line));
 
   (input.tables ?? []).forEach((table) => {
     pdf.heading(table.title);
     pdf.table(table.head, table.rows);
   });
 
-  pdf.heading("5. Assessment");
-  pdf.field("Quiz score", `${input.quizScore} / ${input.quizTotal}`);
-  pdf.y += 4;
+  pdf.heading("Assessment");
+  pdf.scoreBar(input.quizScore, input.quizTotal);
+  if (pdf.appendix) pdf.body("Every question, your answer, and the correct answer are listed in the appendix.");
 
-  pdf.heading("6. Inference & Conclusion");
-  pdf.body(input.conclusion);
+  pdf.heading("Inference & conclusion");
+  pdf.callout(input.conclusion);
+
+  pdf.declaration(input.names, input.regs);
 
   const safe = input.experimentTitle.replace(/[^\w-]+/g, "-").toLowerCase();
   pdf.footerAndSave(`21csc403t-exercise${input.experimentNumber}-${safe}.pdf`);
+}
+
+const INSTRUCTOR = "Dr.T.Grace Shalini";
+
+function certificateRef(names: string, regs: string, score: number, total: number): string {
+  const raw = `${ascii(names).toUpperCase()}|${ascii(regs).toUpperCase()}|${score}/${total}`;
+  let h = 2166136261;
+  for (let i = 0; i < raw.length; i += 1) {
+    h ^= raw.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const hex = (h >>> 0).toString(16).padStart(8, "0").toUpperCase();
+  return `21CSC403T-${hex}`;
+}
+
+/** Landscape completion certificate (final comprehensive quiz). */
+export async function downloadCompletionCertificate(input: CertificateInput) {
+  lastReport = { kind: "final", issuedAt: issuedOn().toISOString(), input, appendix: activeAppendix };
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  doc.addPage("a4", "landscape");
+  doc.deletePage(1);
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const NAVY: [number, number, number] = [11, 27, 51];
+  const GOLD: [number, number, number] = [196, 154, 58];
+  const INK_C: [number, number, number] = [20, 24, 32];
+  const MUTED_C: [number, number, number] = [90, 98, 110];
+  const m = 48;
+  const date = issuedOn().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const ref = certificateRef(input.names, input.regs, input.score, input.total);
+  const headerH = 36;
+  const footerH = 36;
+
+  doc.setFillColor(255, 255, 255);
+  doc.rect(0, 0, pageW, pageH, "F");
+  doc.setFillColor(...NAVY);
+  doc.rect(0, 0, pageW, headerH, "F");
+  doc.setFillColor(...GOLD);
+  doc.rect(0, headerH, pageW, 3, "F");
+  doc.setFillColor(...NAVY);
+  doc.rect(0, pageH - footerH, pageW, footerH, "F");
+  doc.setFillColor(...GOLD);
+  doc.rect(0, pageH - footerH - 3, pageW, 3, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.text("21CSC403T Virtual Laboratory", m, 22);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(232, 214, 160);
+  doc.text("Software Metrics & Measurement", pageW - m, 22, { align: "right" });
+
+  const base = import.meta.env.BASE_URL ?? "/";
+  const [official, srmvl] = await Promise.all([
+    loadScaled(`${base}srm-official-logo.jpg`, 34),
+    loadScaled(`${base}srmvl-logo.png`, 26),
+  ]);
+  let y = headerH + 16;
+  let logoX = m;
+  if (official) {
+    doc.addImage(official.data, official.fmt, logoX, y, official.w, official.h);
+    logoX += official.w + 12;
+  }
+  if (srmvl) doc.addImage(srmvl.data, srmvl.fmt, logoX, y + 4, srmvl.w, srmvl.h);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(...MUTED_C);
+  [
+    `Certificate no: ${ref}`,
+    "Department of Computational Intelligence",
+    "SRM Institute of Science and Technology",
+  ].forEach((line, i) => {
+    doc.text(line, pageW - m, headerH + 20 + i * 11, { align: "right" });
+  });
+
+  y = headerH + 62;
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.8);
+  doc.line(m, y, pageW - m, y);
+
+  const top = y;
+  const bot = pageH - footerH - 12;
+  const at = (t: number) => top + (bot - top) * t;
+
+  y = at(0.07);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(9);
+  doc.setTextColor(...GOLD);
+  doc.text("CERTIFICATE OF COMPLETION", m, y);
+
+  y = at(0.16);
+  doc.setFont("times", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(...INK_C);
+  doc.text("Software Metrics & Measurement", m, y);
+
+  y = at(0.24);
+  doc.setFont("times", "italic");
+  doc.setFontSize(14);
+  doc.setTextColor(50, 58, 72);
+  doc.text("21CSC403T Virtual Laboratory  -  Comprehensive Assessment", m, y);
+
+  y = at(0.32);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...MUTED_C);
+  doc.text("Instructor", m, y);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...INK_C);
+  doc.text(INSTRUCTOR, m + 62, y);
+
+  y = at(0.44);
+  doc.setFont("times", "bold");
+  doc.setFontSize(34);
+  doc.text(ascii(input.names) || "Student", m, y);
+
+  y = at(0.56);
+  const colW = (pageW - m * 2) / 3;
+  const details: [string, string][] = [
+    ["Date", date],
+    ["Registration", ascii(input.regs) || "-"],
+    ["Assessment", `${input.score} / ${input.total}`],
+  ];
+  details.forEach(([label, value], i) => {
+    const x = m + i * colW;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(...MUTED_C);
+    doc.text(label.toUpperCase(), x, y);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...INK_C);
+    doc.text(value, x, y + 16);
+  });
+
+  const pillX = m + 2 * colW + 96;
+  const pillY = y + 2;
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(1.1);
+  doc.roundedRect(pillX, pillY, 72, 22, 3, 3, "S");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(...GOLD);
+  doc.text(`${input.score} / ${input.total}`, pillX + 36, pillY + 15, { align: "center" });
+
+  y = at(0.7);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.setTextColor(55, 62, 74);
+  const certCopy =
+    "This certifies that the student completed the 40-question comprehensive assessment of the 21CSC403T Virtual Laboratory under locked fullscreen conditions.";
+  const certLines = doc.splitTextToSize(certCopy, pageW - m * 2) as string[];
+  const certLead = Math.min(24, (at(0.82) - y) / Math.max(certLines.length, 1));
+  certLines.forEach((line: string) => {
+    doc.text(line, m, y);
+    y += certLead;
+  });
+
+  y = at(0.84);
+  doc.setDrawColor(...GOLD);
+  doc.setLineWidth(0.9);
+  doc.line(m, y, pageW - m, y);
+
+  y = at(0.91);
+  doc.setDrawColor(...NAVY);
+  doc.setLineWidth(0.6);
+  doc.line(m, y, m + 180, y);
+  y += 16;
+  doc.setFont("times", "italic");
+  doc.setFontSize(14);
+  doc.setTextColor(...INK_C);
+  doc.text(INSTRUCTOR, m, y);
+  y += 15;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(...MUTED_C);
+  doc.text("Instructor  ·  Department of Computational Intelligence", m, y);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(255, 255, 255);
+  doc.text("21CSC403T Virtual Lab  ·  SRM Institute of Science and Technology", m, pageH - 14);
+  doc.text(ref, pageW - m, pageH - 14, { align: "right" });
+
+  const filename = `21csc403t-certificate-${ascii(input.regs).replace(/[^\w-]+/g, "-") || "student"}.pdf`;
+  if (!activeAppendix) {
+    doc.save(filename);
+    return;
+  }
+  doc.addPage("a4", "portrait");
+  const review = new LabPdf(doc);
+  review.paintTopBand();
+  review.y = 50;
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...GOLD);
+  doc.text("COMPREHENSIVE ASSESSMENT  ·  PERFORMANCE REPORT", review.margin, review.y);
+  review.y += 22;
+  doc.setFont("times", "bold");
+  doc.setFontSize(22);
+  doc.setTextColor(...NAVY);
+  doc.text("Final assessment summary", review.margin, review.y);
+  review.y += 16;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...MUTED_C);
+  doc.text(`Certificate ${ref}  ·  Issued ${issuedDate()}`, review.margin, review.y);
+  review.y += 22;
+  studentBlock(review, { names: input.names, regs: input.regs, title: "Experiments 1-10 · 40 shuffled questions" });
+  review.heading("Overall result");
+  review.scoreBar(input.score, input.total);
+  review.body("The following pages list every question with your answer and the correct answer.");
+  review.declaration(input.names, input.regs, "the locked 40-question comprehensive assessment");
+  review.footerAndSave(filename, 2);
 }
 
 export interface Exp4PdfInput {

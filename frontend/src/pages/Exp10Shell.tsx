@@ -24,6 +24,7 @@ import { LabPageShell, type LabPageSection } from "@/components/layout/LabPageSh
 import { LabCard, LabFormula, LabInfoBox, LabKpiCard, LabStepList } from "@/components/lab/LabCard";
 import { LabQuizCards } from "@/components/exercise/LabQuizCards";
 import { ConclusionQuizGate, FinalLabQuizButton } from "@/components/quiz/ConclusionQuizGate";
+import { useTrackExercise } from "@/lib/useTrackExercise";
 import {
   EXP10_AFTER,
   EXP10_BASELINE,
@@ -53,6 +54,7 @@ export function Exp10Shell() {
   const [section, setSection] = useState<Tab>("aim");
   const [phase, setPhase] = useState<"before" | "after">("before");
   const [exerciseDone, setExerciseDone] = useState(false);
+  useTrackExercise("10", exerciseDone);
 
   const stats = phase === "before" ? EXP10_BEFORE : EXP10_AFTER;
   const series =
@@ -246,6 +248,7 @@ export function Exp10Shell() {
     }
     return (
       <ConclusionQuizGate
+        labKey="10"
         paragraphs={[conclusion]}
         questions={EXP10_CONCLUSION_QUIZ.map((q) => ({
           id: q.id,

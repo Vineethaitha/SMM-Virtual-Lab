@@ -1,6 +1,8 @@
+import { useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
+  Award,
   BarChart3,
   Beaker,
   BookOpen,
@@ -12,6 +14,7 @@ import {
   FileSearch,
   Gauge,
   Lightbulb,
+  Lock,
   Monitor,
   Network,
   Play,
@@ -23,13 +26,18 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { useRef, useState, type ReactNode } from "react";
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
-import { Badge, Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge, Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EXPERIMENTS } from "@/data/experiments";
 import { FinalLabQuizButton } from "@/components/quiz/ConclusionQuizGate";
+import { SavedReportButton } from "@/components/quiz/SavedReportButton";
 import { SrmOfficialLogo, SrmvlLogo } from "@/components/brand/SrmLogos";
+import { AccountMenu } from "@/components/auth/AccountMenu";
+import { SiteHeader } from "@/components/layout/SiteHeader";
+import { useAuth } from "@/state/AuthContext";
+import type { LabKey } from "@/lib/labProgress";
+import { useLabProgress } from "@/lib/useLabProgress";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -178,7 +186,9 @@ function Section({
 }
 
 export function HomePage() {
+  const { profile } = useAuth();
   const [openUnits, setOpenUnits] = useState<number[]>([1]);
+  const { byKey, isComplete, isUnlocked, loaded, completedCount, finalUnlocked } = useLabProgress();
   const { scrollYProgress } = useScroll();
   const opacity = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
   const scale = useTransform(scrollYProgress, [0, 0.2], [1, 0.9]);
@@ -189,27 +199,36 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="fixed left-0 right-0 top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:h-20 sm:px-6">
-          <Link to="/" className="flex items-center gap-3 sm:gap-6">
-            <SrmvlLogo className="h-9 w-auto" />
-            <div className="hidden items-center gap-4 border-l border-border pl-6 md:flex">
-              <div className="flex flex-col leading-tight">
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">21CSC403T</p>
-                <p className="text-sm font-semibold">Software Metrics & Measurement</p>
-              </div>
-            </div>
-          </Link>
-          <Link to="/lab/1">
-            <Button size="sm" className="gap-2">
-              <Beaker className="h-4 w-4" />
-              Enter Labs
-            </Button>
-          </Link>
-        </div>
-      </header>
+      <SiteHeader
+        right={
+          <>
+            <AccountMenu />
+            <Link to="/lab/1">
+              <Button size="sm" className="gap-2 rounded-full px-4">
+                <Beaker className="h-4 w-4" />
+                Enter Labs
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
-      <section className="relative overflow-hidden pb-20 pt-32 sm:pb-28 sm:pt-40">
+      {profile?.role === "faculty" ? (
+        <div className="relative z-30 border-b border-amber-200 bg-amber-50 px-4 py-3 pt-20 sm:pt-24">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-amber-950">
+              Faculty view: open <strong>Student results</strong> to see who completed each experiment (exercise, quiz, report).
+            </p>
+            <Link to="/faculty">
+              <Button size="sm" className="bg-amber-500 text-white hover:bg-amber-600">
+                Open student results
+              </Button>
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      <section className={`relative overflow-hidden pb-20 ${profile?.role === "faculty" ? "pt-10" : "pt-32"} sm:pb-28 ${profile?.role === "faculty" ? "sm:pt-12" : "sm:pt-40"}`}>
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-100 via-background to-background" />
         <div className="absolute left-1/2 top-1/2 -z-10 h-[800px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/5 blur-3xl" />
 
@@ -312,61 +331,185 @@ export function HomePage() {
             </motion.p>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {EXPERIMENTS.map((exp) => {
               const Icon = ICONS[exp.icon] ?? Beaker;
+              const key = String(exp.id) as LabKey;
+              const row = byKey(key);
+              const done = isComplete(key);
+              const locked = loaded && !isUnlocked(exp.id);
+              const steps = [row?.exercise_completed_at, row?.quiz_completed_at, row?.report_downloaded_at].filter(
+                Boolean,
+              ).length;
               const inner = (
-                <Card
+                <div
                   className={cn(
-                    "h-full border-border/50 bg-card/80 backdrop-blur-sm transition-all duration-300 group-hover:shadow-xl",
-                    !exp.implemented && "opacity-70",
+                    "flex h-full flex-col rounded-2xl border bg-white/90 p-4 shadow-sm transition-all duration-300",
+                    !locked && "group-hover:-translate-y-0.5 group-hover:shadow-lg",
+                    done && "border-emerald-200 bg-emerald-50/90",
+                    locked && "border-dashed border-slate-300 bg-slate-50/70 shadow-none",
+                    !done && !locked && "border-slate-200 group-hover:border-primary/30",
                   )}
                 >
-                  <CardHeader>
-                    <div className="mb-3 flex items-start justify-between">
-                      <div
-                        className={cn(
-                          "rounded-xl p-3 transition-transform duration-300 group-hover:scale-110",
-                          exp.implemented ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground",
-                        )}
-                      >
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <Badge
-                        className={
-                          exp.implemented
-                            ? "bg-primary px-2 py-0.5 text-xs text-white"
-                            : "border border-primary/20 bg-primary/10 px-2 py-0.5 text-xs text-primary"
-                        }
-                      >
-                        Lab {exp.id}
-                      </Badge>
-                    </div>
-                    <CardTitle className="text-lg leading-snug">{exp.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="mb-4 line-clamp-3 text-sm text-muted-foreground">{exp.description}</p>
-                    <div
+                  <div className="flex items-center gap-2.5">
+                    <span
                       className={cn(
-                        "flex items-center text-sm font-medium transition-transform group-hover:translate-x-1",
-                        exp.implemented ? "text-primary" : "text-muted-foreground",
+                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                        done
+                          ? "bg-emerald-100 text-emerald-700"
+                          : locked
+                            ? "bg-slate-200/70 text-slate-400"
+                            : "bg-primary/10 text-primary",
                       )}
                     >
-                      {exp.implemented ? "Start lab" : "Coming soon"}
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </div>
-                  </CardContent>
-                </Card>
+                      {locked ? <Lock className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-[11px] font-semibold uppercase tracking-wider",
+                        locked ? "text-slate-400" : "text-slate-500",
+                      )}
+                    >
+                      Lab {String(exp.id).padStart(2, "0")}
+                    </span>
+                    <span
+                      className={cn(
+                        "ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                        done
+                          ? "bg-emerald-600 text-white"
+                          : locked
+                            ? "bg-slate-100 text-slate-400"
+                            : steps > 0
+                              ? "bg-amber-100 text-amber-800"
+                              : "bg-primary/10 text-primary",
+                      )}
+                    >
+                      {done ? "Completed" : locked ? "Locked" : steps > 0 ? "In progress" : "Open"}
+                    </span>
+                  </div>
+
+                  <h3
+                    className={cn(
+                      "mt-3 line-clamp-2 text-[15px] font-semibold leading-snug",
+                      locked ? "text-slate-500" : "text-slate-900",
+                    )}
+                  >
+                    {exp.title}
+                  </h3>
+                  {!locked ? (
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{exp.description}</p>
+                  ) : null}
+
+                  <div className="min-h-3 flex-1" />
+                  <div
+                    className={cn(
+                      "flex items-center justify-between gap-2",
+                      !locked && "border-t pt-3",
+                      done ? "border-emerald-200/80" : "border-slate-100",
+                    )}
+                  >
+                    {locked ? (
+                      <span className="flex items-center gap-1.5 text-xs text-slate-400">
+                        <Lock className="h-3 w-3" />
+                        Finish Lab {exp.id - 1} to unlock
+                      </span>
+                    ) : done ? (
+                      <>
+                        <span className="flex items-center text-xs font-semibold text-emerald-700 transition-transform group-hover:translate-x-0.5">
+                          Review
+                          <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                        </span>
+                        <SavedReportButton labKey={key} label="Report" size="sm" className="h-7 rounded-lg px-2.5 text-xs" />
+                      </>
+                    ) : (
+                      <>
+                        <span className="flex items-center text-xs font-semibold text-primary transition-transform group-hover:translate-x-0.5">
+                          {steps > 0 ? "Continue" : "Start lab"}
+                          <ArrowRight className="ml-1 h-3.5 w-3.5" />
+                        </span>
+                        <span className="flex items-center gap-1" title={`${steps} of 3 steps done`}>
+                          {[0, 1, 2].map((i) => (
+                            <span
+                              key={i}
+                              className={cn("h-1.5 w-4 rounded-full", i < steps ? "bg-amber-500" : "bg-slate-200")}
+                            />
+                          ))}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
               );
 
               return (
                 <motion.div key={exp.id} variants={itemVariants}>
-                  <Link to={`/lab/${exp.id}`} className="group block h-full">
-                    {inner}
-                  </Link>
+                  {locked ? (
+                    <div className="block h-full cursor-not-allowed" aria-disabled title="Locked">
+                      {inner}
+                    </div>
+                  ) : (
+                    <Link to={`/lab/${exp.id}`} className="group block h-full">
+                      {inner}
+                    </Link>
+                  )}
                 </motion.div>
               );
             })}
+            <motion.div variants={itemVariants} className="sm:col-span-2 lg:col-span-2">
+              <div
+                className={cn(
+                  "flex h-full flex-col rounded-2xl border p-4 shadow-sm",
+                  isComplete("final")
+                    ? "border-emerald-200 bg-emerald-50/90"
+                    : "border-amber-200 bg-gradient-to-br from-amber-50 to-white",
+                )}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+                      isComplete("final") ? "bg-emerald-100 text-emerald-700" : "bg-amber-400/20 text-amber-800",
+                    )}
+                  >
+                    <Award className="h-4 w-4" />
+                  </span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-800/80">
+                    Final assessment
+                  </span>
+                  <span
+                    className={cn(
+                      "ml-auto rounded-full px-2 py-0.5 text-[10px] font-semibold text-white",
+                      isComplete("final") ? "bg-emerald-600" : "bg-amber-500",
+                    )}
+                  >
+                    {isComplete("final") ? "Completed" : finalUnlocked ? "Open" : `${completedCount} / 10 labs`}
+                  </span>
+                </div>
+                <h3 className="mt-3 text-[15px] font-semibold leading-snug text-slate-900">Comprehensive lab quiz</h3>
+                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                  40 shuffled questions across all ten experiments, taken in fullscreen. Completing it issues a
+                  certificate signed by Dr.T.Grace Shalini.
+                </p>
+                <div className="min-h-3 flex-1" />
+                <div className="flex flex-wrap items-center gap-3 border-t border-amber-200/60 pt-3">
+                  {!finalUnlocked ? (
+                    <div className="min-w-[10rem] flex-1">
+                      <div className="mb-1 flex items-center gap-1.5 text-[11px] font-medium text-amber-900">
+                        <Lock className="h-3 w-3" />
+                        Unlocks after all ten experiments
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-amber-100">
+                        <div
+                          className="h-full rounded-full bg-amber-500 transition-all"
+                          style={{ width: `${(completedCount / 10) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+                  <FinalLabQuizButton compact />
+                </div>
+              </div>
+            </motion.div>
           </div>
         </div>
       </Section>
@@ -469,19 +612,6 @@ export function HomePage() {
                 </Card>
               </motion.div>
             ))}
-          </div>
-        </div>
-      </Section>
-
-      <Section className="border-t border-border bg-slate-50 py-16">
-        <div className="mx-auto max-w-2xl px-4 text-center">
-          <h2 className="mb-2 text-2xl font-bold">After all ten experiments</h2>
-          <p className="mb-6 text-sm text-muted-foreground">
-            Forty shuffled questions (MCQ, numericals, and new case studies). Fullscreen until you finish —
-            leaving early voids the report.
-          </p>
-          <div className="flex justify-center">
-            <FinalLabQuizButton />
           </div>
         </div>
       </Section>

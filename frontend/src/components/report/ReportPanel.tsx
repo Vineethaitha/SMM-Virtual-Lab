@@ -11,6 +11,7 @@ import {
   type ReportStudentForm,
 } from "@/components/lab/ReportForm";
 import { useLab } from "@/state/LabContext";
+import { useAuth } from "@/state/AuthContext";
 
 export function ComparisonPanel() {
   const { analysis, baseline } = useLab();
@@ -77,9 +78,10 @@ export function ReportPanel({
   quizDone?: boolean;
 }) {
   const { analysis, baseline } = useLab();
+  const { profile } = useAuth();
   const [student, setStudent] = useState<ReportStudentForm>({
-    names: "",
-    regs: "",
+    names: profile?.full_name ?? "",
+    regs: profile?.registration_number ?? "",
     title: "Software Code Metrics Analysis",
     origin: "sample",
     github: "",
@@ -130,13 +132,17 @@ export function ReportPanel({
                 : !quizDone
                   ? "Check every conclusion-quiz question first."
                   : !student.names.trim() || !student.regs.trim()
-                    ? "Enter name(s) and registration number(s)."
+                    ? "Your sign-in profile needs a name and registration number."
                     : undefined
           }
         />
         <ReportStudentFields
           form={student}
-          onChange={(key, value) => setStudent((f) => ({ ...f, [key]: value }))}
+          lockIdentity
+          onChange={(key, value) => {
+            if (key === "names" || key === "regs") return;
+            setStudent((f) => ({ ...f, [key]: value }));
+          }}
           originOptions={[
             { value: "sample", label: "Lab sample / own snippet" },
             { value: "own", label: "Own project" },
