@@ -1,9 +1,5 @@
 node_modules
 dist
-.env
-.env.local
-frontend/.env
-frontend/.env.local
 .venv
 __pycache__
 *.pyc
@@ -12,3 +8,21 @@ __pycache__
 .cursor
 *.log
 *.sqlite3
+
+# Environment and secrets (keep only the examples)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+service-account*.json
+
+# Supabase database schema, migrations, email templates and local CLI state
+supabase/
+
+# Build and tool caches
+.vite/
+frontend/.vite/
+.vercel
+frontend/.pdfcheck/

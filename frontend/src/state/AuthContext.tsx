@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
+import { emailPolicyError } from "@/lib/emailPolicy";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
 
 export type Profile = {
@@ -25,6 +26,24 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+
+function friendlyAuthError(message?: string | null, status?: number) {
+  if (status === 504 || (message ?? "").includes("504") || (message ?? "").toLowerCase().includes("gateway")) {
+    return "HTTP 504: Supabase timed out contacting your custom SMTP server. The lab did not send the mail. In Authentication → Emails → SMTP, use a public host (not localhost), port 587, and the mailbox password or app password. Use Send test email there. If that also returns 504, the SMTP host is blocking or too slow for Supabase.";
+  }
+  if (!message) return status ? `Sign-in failed (HTTP ${status}).` : null;
+  const lower = message.toLowerCase();
+  if (lower.includes("rate limit") || lower.includes("over_email_send_rate_limit")) {
+    return `Supabase email rate limit (${message}). This is enforced by the Auth project, not the lab app. Wait, or raise it under Authentication → Rate Limits → emails.`;
+  }
+  return message;
+}
+
+function authError(error: { message: string; status?: number } | null) {
+  if (!error) return null;
+  const status = "status" in error ? Number(error.status) : undefined;
+  return friendlyAuthError(error.message, Number.isFinite(status) ? status : undefined);
+}
 
 async function loadProfile(userId: string): Promise<Profile | null> {
   if (!supabase) return null;
@@ -80,10 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
     setLoading(true);
-    loadProfile(uid).then((p) => {
+    void (async () => {
+      await supabase.rpc("sync_my_faculty_role");
+      const p = await loadProfile(uid);
       setProfile(p);
       setLoading(false);
-    });
+    })();
   }, [session?.user?.id]);
 
   const updateProfile = useCallback(
@@ -107,21 +128,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const sendOtp = useCallback(async (email: string) => {
     if (!supabase) return "Supabase is not configured.";
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { shouldCreateUser: true },
-    });
-    return error?.message ?? null;
+    const policyError = emailPolicyError(email);
+    if (policyError) return policyError;
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: { shouldCreateUser: true },
+      });
+      return authError(error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Sign-in request failed.";
+      return friendlyAuthError(message, message.includes("504") ? 504 : undefined);
+    }
   }, []);
 
   const verifyOtp = useCallback(async (email: string, token: string) => {
     if (!supabase) return "Supabase is not configured.";
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: token.trim(),
-      type: "email",
-    });
-    return error?.message ?? null;
+    const emailAddr = email.trim();
+    const code = token.trim();
+    try {
+      const first = await supabase.auth.verifyOtp({ email: emailAddr, token: code, type: "email" });
+      if (!first.error) return null;
+      return authError(first.error);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not verify the code.";
+      return friendlyAuthError(message);
+    }
   }, []);
 
   const signOut = useCallback(async () => {

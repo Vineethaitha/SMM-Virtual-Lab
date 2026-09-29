@@ -67,22 +67,34 @@ export function ReportStudentFields({
   originOptions,
   footnote,
   disabled,
+  lockIdentity,
 }: {
   form: ReportStudentForm;
   onChange: (key: keyof ReportStudentForm, value: string) => void;
   originOptions: { value: string; label: string }[];
   footnote?: string;
   disabled?: boolean;
+  lockIdentity?: boolean;
 }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
-      <ReportField label="Name(s)" value={form.names} disabled={disabled} onChange={(v) => onChange("names", v)} />
-      <ReportField
-        label="Registration number(s)"
-        value={form.regs}
-        disabled={disabled}
-        onChange={(v) => onChange("regs", v)}
-      />
+      {lockIdentity ? (
+        <div className="rounded-xl border border-[#e4d3a4] bg-[#f8f4ea] px-4 py-3 md:col-span-2">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8a6a24]">Signed-in student</p>
+          <p className="mt-1 text-base font-semibold text-[#0b1b33]">{form.names || "Name not set"}</p>
+          <p className="text-sm text-slate-600">{form.regs || "Registration number not set"}</p>
+        </div>
+      ) : (
+        <>
+          <ReportField label="Name(s)" value={form.names} disabled={disabled} onChange={(v) => onChange("names", v)} />
+          <ReportField
+            label="Registration number(s)"
+            value={form.regs}
+            disabled={disabled}
+            onChange={(v) => onChange("regs", v)}
+          />
+        </>
+      )}
       <ReportField label="Project title" value={form.title} disabled={disabled} onChange={(v) => onChange("title", v)} />
       <label className="text-xs font-medium text-slate-700">
         Origin
