@@ -53,7 +53,7 @@ export function CompleteProfilePage() {
             required
             autoFocus
             autoComplete="name"
-            placeholder="e.g. Aitha Vineeth"
+            placeholder="e.g. John Doe"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
